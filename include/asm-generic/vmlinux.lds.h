@@ -277,7 +277,7 @@
 #define INIT_TASK_DATA(align)						\
 	. = ALIGN(align);						\
 	VMLINUX_SYMBOL(__start_init_task) = .;				\
-	*(.data..init_task)						\
+	KEEP(*(.data..init_task))					\
 	VMLINUX_SYMBOL(__end_init_task) = .;
 
 /*
@@ -479,8 +479,8 @@
 		*(TEXT_CFI_MAIN) 					\
 		*(.ref.text)						\
 		*(.text.asan.* .text.tsan.*)				\
-	MEM_KEEP(init.text)						\
-	MEM_KEEP(exit.text)						\
+	MEM_KEEP(init.text*)						\
+	MEM_KEEP(exit.text*)						\
 
 /* sched.text is aling to function alignment to secure we have same
  * address even at second ld pass when generating System.map */

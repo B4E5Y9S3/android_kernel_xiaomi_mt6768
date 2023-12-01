@@ -275,8 +275,6 @@ static int binder_allocate_page_range(struct binder_alloc *alloc,
 			       alloc->pid, page_addr);
 			goto err_alloc_page_failed;
 		}
-		page->alloc = alloc;
-		INIT_LIST_HEAD(&page->lru);
 
 		ret = vm_insert_page(vma, page_addr, page->page_ptr);
 		if (ret) {
@@ -837,9 +835,9 @@ void binder_alloc_free_buf(struct binder_alloc *alloc,
 int binder_alloc_mmap_handler(struct binder_alloc *alloc,
 			      struct vm_area_struct *vma)
 {
-	int ret;
-	const char *failure_string;
 	struct binder_buffer *buffer;
+	const char *failure_string;
+	int ret, i;
 
 	mutex_lock(&binder_alloc_mmap_lock);
 	if (alloc->buffer_size) {
@@ -860,6 +858,11 @@ int binder_alloc_mmap_handler(struct binder_alloc *alloc,
 		ret = -ENOMEM;
 		failure_string = "alloc page array";
 		goto err_alloc_pages_failed;
+	}
+
+	for (i = 0; i < alloc->buffer_size / PAGE_SIZE; i++) {
+		alloc->pages[i].alloc = alloc;
+		INIT_LIST_HEAD(&alloc->pages[i].lru);
 	}
 
 	buffer = kzalloc(sizeof(*buffer), GFP_KERNEL);

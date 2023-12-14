@@ -489,7 +489,7 @@ void otg_thermal_limit(void)
 {
 	static struct charger_device *primary_charger;
 	if (otg_ibat_limit == 1) {
-		pr_err("ibat limit otg. skip thermal limit otg current\n");
+		pr_debug("ibat limit otg. skip thermal limit otg current\n");
 		return;
 	}
 	if (!primary_charger) {
@@ -3795,7 +3795,7 @@ static int battery_callback(
 			if (force_get_tbat(true) < 45)
 				notify_fg_chr_full();
 			battery_update(&battery_main);
-			pr_err("battery is full\n");
+			pr_debug("battery is full\n");
 		}
 		break;
 	case CHARGER_NOTIFY_START_CHARGING:

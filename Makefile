@@ -747,6 +747,7 @@ else
 OPT_FLAGS       += -O2
 endif
 ifeq ($(cc-name),clang)
+OPT_FLAGS       += -mcpu=cortex-a55+crc+crypto -mtune=cortex-a55 -march=armv8.2-a+crc+crypto+lse+rdm+rcpc+dotprod
 ifdef CONFIG_LLVM_POLLY
 POLLY_FLAGS	+= -mllvm -polly \
 		   -mllvm -polly-ast-use-context \

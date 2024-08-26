@@ -205,15 +205,9 @@ do {if (1) mmprofile_log_ex(args); } while (0);	\
 
 
 #define CMDQ_SYSTRACE_BEGIN(fmt, args...) do { \
-	if (cmdq_core_ftrace_enabled()) { \
-		CMDQ_TRACE_FORCE_BEGIN(fmt, ##args); \
-	} \
 } while (0)
 
 #define CMDQ_SYSTRACE_END() do { \
-	if (cmdq_core_ftrace_enabled()) { \
-		CMDQ_TRACE_FORCE_END(); \
-	} \
 } while (0)
 
 #define CMDQ_GET_TIME_IN_MS(start, end, duration)	\

@@ -488,7 +488,7 @@ static int proc_pid_schedstat(struct seq_file *m, struct pid_namespace *ns,
 			      struct pid *pid, struct task_struct *task)
 {
 	if (unlikely(!sched_info_on()))
-		seq_printf(m, "0 0 0\n");
+		seq_puts(m, "0 0 0\n");
 	else
 		seq_printf(m, "%llu %llu %lu\n",
 		   (unsigned long long)task->se.sum_exec_runtime,
@@ -2129,9 +2129,9 @@ out:
 }
 
 struct map_files_info {
+	unsigned long	start;
+	unsigned long	end;
 	fmode_t		mode;
-	unsigned int	len;
-	unsigned char	name[4*sizeof(long)+2]; /* max: %lx-%lx\0 */
 };
 
 /*
@@ -2301,10 +2301,9 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
 			if (++pos <= ctx->pos)
 				continue;
 
+			info.start = vma->vm_start;
+			info.end = vma->vm_end;
 			info.mode = vma->vm_file->f_mode;
-			info.len = snprintf(info.name,
-					sizeof(info.name), "%lx-%lx",
-					vma->vm_start, vma->vm_end);
 			if (flex_array_put(fa, i++, &info, GFP_KERNEL))
 				BUG();
 		}
@@ -2313,9 +2312,13 @@ proc_map_files_readdir(struct file *file, struct dir_context *ctx)
 	mmput(mm);
 
 	for (i = 0; i < nr_files; i++) {
+		char buf[4 * sizeof(long) + 2];	/* max: %lx-%lx\0 */
+		unsigned int len;
+
 		p = flex_array_get(fa, i);
+		len = snprintf(buf, sizeof(buf), "%lx-%lx", p->start, p->end);
 		if (!proc_fill_cache(file, ctx,
-				      p->name, p->len,
+				      buf, len,
 				      proc_map_files_instantiate,
 				      task,
 				      (void *)(unsigned long)p->mode))
@@ -3195,11 +3198,11 @@ static const struct inode_operations proc_tgid_base_inode_operations = {
 static void proc_flush_task_mnt(struct vfsmount *mnt, pid_t pid, pid_t tgid)
 {
 	struct dentry *dentry, *leader, *dir;
-	char buf[PROC_NUMBUF];
+	char buf[10 + 1];
 	struct qstr name;
 
 	name.name = buf;
-	name.len = snprintf(buf, sizeof(buf), "%d", pid);
+	name.len = snprintf(buf, sizeof(buf), "%u", pid);
 	/* no ->d_hash() rejects on procfs */
 	dentry = d_hash_and_lookup(mnt->mnt_root, &name);
 	if (dentry) {
@@ -3211,7 +3214,7 @@ static void proc_flush_task_mnt(struct vfsmount *mnt, pid_t pid, pid_t tgid)
 		return;
 
 	name.name = buf;
-	name.len = snprintf(buf, sizeof(buf), "%d", tgid);
+	name.len = snprintf(buf, sizeof(buf), "%u", tgid);
 	leader = d_hash_and_lookup(mnt->mnt_root, &name);
 	if (!leader)
 		goto out;
@@ -3223,7 +3226,7 @@ static void proc_flush_task_mnt(struct vfsmount *mnt, pid_t pid, pid_t tgid)
 		goto out_put_leader;
 
 	name.name = buf;
-	name.len = snprintf(buf, sizeof(buf), "%d", pid);
+	name.len = snprintf(buf, sizeof(buf), "%u", pid);
 	dentry = d_hash_and_lookup(dir, &name);
 	if (dentry) {
 		d_invalidate(dentry);
@@ -3402,14 +3405,14 @@ int proc_pid_readdir(struct file *file, struct dir_context *ctx)
 	for (iter = next_tgid(ns, iter);
 	     iter.task;
 	     iter.tgid += 1, iter = next_tgid(ns, iter)) {
-		char name[PROC_NUMBUF];
+		char name[10 + 1];
 		int len;
 
 		cond_resched();
 		if (!has_pid_permissions(ns, iter.task, HIDEPID_INVISIBLE))
 			continue;
 
-		len = snprintf(name, sizeof(name), "%d", iter.tgid);
+		len = snprintf(name, sizeof(name), "%u", iter.tgid);
 		ctx->pos = iter.tgid + TGID_OFFSET;
 		if (!proc_fill_cache(file, ctx, name, len,
 				     proc_pid_instantiate, iter.task, NULL)) {
@@ -3750,10 +3753,10 @@ static int proc_task_readdir(struct file *file, struct dir_context *ctx)
 	for (task = first_tid(proc_pid(inode), tid, ctx->pos - 2, ns);
 	     task;
 	     task = next_tid(task), ctx->pos++) {
-		char name[PROC_NUMBUF];
+		char name[10 + 1];
 		int len;
 		tid = task_pid_nr_ns(task, ns);
-		len = snprintf(name, sizeof(name), "%d", tid);
+		len = snprintf(name, sizeof(name), "%u", tid);
 		if (!proc_fill_cache(file, ctx, name, len,
 				proc_task_instantiate, task, NULL)) {
 			/* returning this tgid failed, save it as the first

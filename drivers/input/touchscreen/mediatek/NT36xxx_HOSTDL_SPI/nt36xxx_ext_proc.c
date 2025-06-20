@@ -83,10 +83,11 @@ void nvt_change_mode(uint8_t mode)
 	CTP_SPI_WRITE(ts->client, buf, 2);
 
 	if (mode == NORMAL_MODE) {
+		usleep_range(20000, 21000);
 		buf[0] = EVENT_MAP_HANDSHAKING_or_SUB_CMD_BYTE;
 		buf[1] = HANDSHAKING_HOST_READY;
 		CTP_SPI_WRITE(ts->client, buf, 2);
-		msleep(20);
+		usleep_range(20000, 21000);
 	}
 }
 
@@ -264,7 +265,7 @@ static int32_t c_tp_data_dump_show(struct seq_file *m, void *v)
 		for (j = 0; j < ts->x_num; j++) {
 			seq_printf(m, "%5d, ", xdata[i * ts->x_num + j]);
 		}
-		seq_puts(m, "\n");
+		seq_putc(m, '\n');
 	}
 
 	memset(xdata, 0, sizeof(xdata));
@@ -291,7 +292,7 @@ static int32_t c_tp_data_dump_show(struct seq_file *m, void *v)
 		for (j = 0; j < ts->x_num; j++) {
 			seq_printf(m, "%5d, ", xdata[i * ts->x_num + j]);
 		}
-		seq_puts(m, "\n");
+		seq_putc(m, '\n');
 	}
 
 	return 0;
@@ -314,14 +315,14 @@ static int32_t c_show(struct seq_file *m, void *v)
 		for (j = 0; j < ts->x_num; j++) {
 			seq_printf(m, "%5d, ", xdata[i * ts->x_num + j]);
 		}
-		seq_puts(m, "\n");
+		seq_putc(m, '\n');
 	}
 
 #if TOUCH_KEY_NUM > 0
 	for (i = 0; i < TOUCH_KEY_NUM; i++) {
 		seq_printf(m, "%5d, ", xdata[ts->x_num * ts->y_num + i]);
 	}
-	seq_puts(m, "\n");
+	seq_putc(m, '\n');
 #endif
 
 	seq_printf(m, "\n\n");
@@ -559,13 +560,13 @@ static ssize_t nvt_pf_switch_proc_write(struct file *filp, const char __user *bu
 
 	NVT_LOG("++\n");
 
-	if (count == 0 || count > 2) {
+	if (count != 1 && count != 2) {
 		NVT_LOG("Invalid value! count = %zu\n", count);
 		ret = -EINVAL;
 		return ret;
 	}
 
-	tmp_buf = kzalloc(count, GFP_KERNEL);
+	tmp_buf = kzalloc((count+1), GFP_KERNEL);
 	if (!tmp_buf) {
 		NVT_LOG("Allocate tmp_buf fail!\n");
 		ret = -ENOMEM;
@@ -605,8 +606,7 @@ static ssize_t nvt_pf_switch_proc_write(struct file *filp, const char __user *bu
 
 	ret = count;
 out:
-    if (tmp_buf)
-		kfree(tmp_buf);
+	kfree(tmp_buf);
 	NVT_LOG("--\n");
 	return ret;
 }
@@ -735,13 +735,13 @@ static ssize_t nvt_sensitivity_switch_proc_write(struct file *filp, const char _
 
 	NVT_LOG("++\n");
 
-	if (count == 0 || count > 2) {
+	if (count != 1 && count != 2) {
 		NVT_LOG("Invalid value! count = %zu\n", count);
 		ret = -EINVAL;
 		return ret;
 	}
 
-	tmp_buf = kzalloc(count, GFP_KERNEL);
+	tmp_buf = kzalloc((count+1), GFP_KERNEL);
 	if (!tmp_buf) {
 		NVT_LOG("Allocate tmp_buf fail!\n");
 		ret = -ENOMEM;
@@ -781,8 +781,7 @@ static ssize_t nvt_sensitivity_switch_proc_write(struct file *filp, const char _
 
 	ret = count;
 out:
-    if (tmp_buf)
-		kfree(tmp_buf);
+	kfree(tmp_buf);
 	NVT_LOG("--\n");
 	return ret;
 }
@@ -913,13 +912,13 @@ static ssize_t nvt_er_range_switch_proc_write(struct file *filp, const char __us
 
 	NVT_LOG("++\n");
 
-	if (count == 0 || count > 2) {
+	if (count != 1 && count != 2) {
 		NVT_LOG("Invalid value! count = %zu\n", count);
 		ret = -EINVAL;
 		return ret;
 	}
 
-	tmp_buf = kzalloc(count, GFP_KERNEL);
+	tmp_buf = kzalloc((count+1), GFP_KERNEL);
 	if (!tmp_buf) {
 		NVT_LOG("Allocate tmp_buf fail!\n");
 		ret = -ENOMEM;
@@ -959,8 +958,7 @@ static ssize_t nvt_er_range_switch_proc_write(struct file *filp, const char __us
 
 	ret = count;
 out:
-    if (tmp_buf)
-		kfree(tmp_buf);
+	kfree(tmp_buf);
 	NVT_LOG("--\n");
 	return ret;
 }
@@ -1096,13 +1094,13 @@ static ssize_t nvt_max_power_switch_proc_write(struct file *filp, const char __u
 
 	NVT_LOG("++\n");
 
-	if (count == 0 || count > 2) {
+	if (count != 1 && count != 2) {
 		NVT_LOG("Invalid value! count = %zu\n", count);
 		ret = -EINVAL;
 		return ret;
 	}
 
-	tmp_buf = kzalloc(count, GFP_KERNEL);
+	tmp_buf = kzalloc((count+1), GFP_KERNEL);
 	if (!tmp_buf) {
 		NVT_LOG("Allocate tmp_buf fail!\n");
 		ret = -ENOMEM;
@@ -1142,9 +1140,7 @@ static ssize_t nvt_max_power_switch_proc_write(struct file *filp, const char __u
 
 	ret = count;
 out:
-	if (tmp_buf) {
-		kfree(tmp_buf);
-	}
+	kfree(tmp_buf);
 	NVT_LOG("--\n");
 	return ret;
 }
@@ -1285,13 +1281,13 @@ static ssize_t nvt_edge_reject_switch_proc_write(struct file *filp, const char _
 
 	NVT_LOG("++\n");
 
-	if (count == 0 || count > 2) {
+	if (count != 1 && count != 2) {
 		NVT_LOG("Invalid value! count = %zu\n", count);
 		ret = -EINVAL;
 		return ret;
 	}
 
-	tmp_buf = kzalloc(count, GFP_KERNEL);
+	tmp_buf = kzalloc((count+1), GFP_KERNEL);
 	if (!tmp_buf) {
 		NVT_LOG("Allocate tmp_buf fail!\n");
 		ret = -ENOMEM;
@@ -1330,8 +1326,7 @@ static ssize_t nvt_edge_reject_switch_proc_write(struct file *filp, const char _
 
 	ret = count;
 out:
-if (tmp_buf)
-		kfree(tmp_buf);
+	kfree(tmp_buf);
 	NVT_LOG("--\n");
 	return ret;
 }
@@ -1468,13 +1463,13 @@ static ssize_t nvt_charger_switch_proc_write(struct file *filp, const char __use
 
 	NVT_LOG("++\n");
 
-	if (count == 0 || count > 2) {
+	if (count != 1 && count != 2) {
 		NVT_LOG("Invalid value!, count = %zu\n", count);
 		ret = -EINVAL;
 		return ret;
 	}
 
-	tmp_buf = kzalloc(count, GFP_KERNEL);
+	tmp_buf = kzalloc((count+1), GFP_KERNEL);
 	if (!tmp_buf) {
 		NVT_LOG("Allocate tmp_buf fail!\n");
 		ret = -ENOMEM;
@@ -1513,8 +1508,7 @@ static ssize_t nvt_charger_switch_proc_write(struct file *filp, const char __use
 
 	ret = count;
 out:
-	if (tmp_buf)
-		kfree(tmp_buf);
+	kfree(tmp_buf);
 	NVT_LOG("--\n");
 	return ret;
 }
@@ -1850,13 +1844,13 @@ static ssize_t nvt_pocket_palm_switch_proc_write(struct file *filp, const char _
 
 	NVT_LOG("++\n");
 
-	if (count == 0 || count > 2) {
+	if (count != 1 && count != 2) {
 		NVT_ERR("Invalid value!, count = %zu\n", count);
 		ret = -EINVAL;
 		return ret;
 	}
 
-	tmp_buf = kzalloc(count, GFP_KERNEL);
+	tmp_buf = kzalloc((count+1), GFP_KERNEL);
 	if (!tmp_buf) {
 		NVT_ERR("Allocate tmp_buf fail!\n");
 		ret = -ENOMEM;
@@ -1895,8 +1889,7 @@ static ssize_t nvt_pocket_palm_switch_proc_write(struct file *filp, const char _
 
 	ret = count;
 out:
-	if (tmp_buf)
-		kfree(tmp_buf);
+	kfree(tmp_buf);
 	NVT_LOG("--\n");
 	return ret;
 }

@@ -358,7 +358,7 @@ static int wk_bat_temp_dbg(int bat_temp_prev, int bat_temp)
 	unsigned short i;
 
 	vbif28 = auxadc_priv_read_channel(pmic_auxadc_dev, AUXADC_VBIF);
-	pr_notice("BAT_TEMP_PREV:%d,BAT_TEMP:%d,VBIF28:%d\n",
+	pr_debug("BAT_TEMP_PREV:%d,BAT_TEMP:%d,VBIF28:%d\n",
 		bat_temp_prev, bat_temp, vbif28);
 	if (bat_temp < 200 || abs(bat_temp_prev - bat_temp) > 100) {
 		wk_auxadc_dbg_dump();
@@ -420,6 +420,7 @@ void wake_up_mdrt_thread(void)
 /* dump MDRT related register */
 static void mdrt_reg_dump(void)
 {
+#ifdef CONFIG_MTK_ENG_BUILD
 #ifdef CONFIG_MTK_PMIC_WRAP_HAL
 	pwrap_dump_all_register();
 #endif
@@ -445,6 +446,9 @@ static void mdrt_reg_dump(void)
 	pr_notice("RG_AUXADC_CK_PDN = 0x%x, RG_AUXADC_CK_PDN_HWEN = 0x%x\n",
 		pmic_get_register_value(PMIC_RG_AUXADC_CK_PDN),
 		pmic_get_register_value(PMIC_RG_AUXADC_CK_PDN_HWEN));
+#else
+	((void)0);
+#endif
 }
 
 /* Check MDRT_ADC data has changed or not */
@@ -464,7 +468,7 @@ void mdrt_monitor(void)
 	mdrt_timestamp = mdrt_timestamp_cur;
 
 	temp_mdrt_adc = pmic_get_register_value(PMIC_AUXADC_ADC_OUT_MDRT);
-	pr_notice("[MDRT_ADC] OLD = 0x%x, NOW = 0x%x, CNT = %d\n",
+	pr_debug("[MDRT_ADC] OLD = 0x%x, NOW = 0x%x, CNT = %d\n",
 		mdrt_adc, temp_mdrt_adc, mdrt_cnt);
 
 	if (temp_mdrt_adc != mdrt_adc) {
@@ -479,10 +483,14 @@ void mdrt_monitor(void)
 		pmic_set_hk_reg_value(PMIC_AUXADC_RQST_CH7_BY_MD, 1);
 		pmic_set_hk_reg_value(PMIC_AUXADC_RQST_CH7_BY_GPS, 1);
 		mdelay(1);
+#ifdef CONFIG_MTK_ENG_BUILD
 		mdrt_reg_dump();
+#endif
 	}
 	if (mdrt_cnt > 15) {
+#ifdef CONFIG_MTK_ENG_BUILD
 		mdrt_reg_dump();
+#endif
 		mdrt_cnt = 0;
 		wake_up_mdrt_thread();
 	}
@@ -542,7 +550,9 @@ static int mdrt_kthread(void *x)
 				wk_auxadc_reset();
 			}
 			if (polling_cnt >= 312) { /* 312 * 32ms ~= 10s*/
+#ifdef CONFIG_MTK_ENG_BUILD
 				mdrt_reg_dump();
+#endif
 #ifdef CONFIG_MTK_AEE_FEATURE
 				aee_kernel_warning("PMIC AUXADC:MDRT", "MDRT");
 #endif

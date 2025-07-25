@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2019-2023 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2019-2024 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -495,14 +495,22 @@ static int protected_memory_allocator_probe(struct platform_device *pdev)
 	return 0;
 }
 
+#if (KERNEL_VERSION(6, 11, 0) > LINUX_VERSION_CODE)
 static int protected_memory_allocator_remove(struct platform_device *pdev)
+#else
+static void protected_memory_allocator_remove(struct platform_device *pdev)
+#endif
 {
 	struct protected_memory_allocator_device *pma_dev = platform_get_drvdata(pdev);
 	struct simple_pma_device *epma_dev;
 	struct device *dev;
 
 	if (!pma_dev)
+#if (KERNEL_VERSION(6, 11, 0) > LINUX_VERSION_CODE)
 		return -EINVAL;
+#else
+		return;
+#endif
 
 	epma_dev = container_of(pma_dev, struct simple_pma_device, pma_dev);
 	dev = epma_dev->dev;
@@ -518,7 +526,9 @@ static int protected_memory_allocator_remove(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "Protected memory allocator removed successfully\n");
 
+#if (KERNEL_VERSION(6, 11, 0) > LINUX_VERSION_CODE)
 	return 0;
+#endif
 }
 
 static const struct of_device_id protected_memory_allocator_dt_ids[] = {

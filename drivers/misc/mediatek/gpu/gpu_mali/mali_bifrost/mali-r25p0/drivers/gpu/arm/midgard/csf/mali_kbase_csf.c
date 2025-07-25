@@ -35,7 +35,6 @@
 #include <csf/ipa_control/mali_kbase_csf_ipa_control.h>
 #include <mali_kbase_hwaccess_time.h>
 #include "mali_kbase_csf_event.h"
-#include "mali_kbase_ctx_sched.h"
 #include <tl/mali_kbase_tracepoints.h>
 #include "mali_kbase_csf_mcu_shared_reg.h"
 #include <linux/version_compat_defs.h>
@@ -783,18 +782,17 @@ void kbase_csf_ring_csg_doorbell(struct kbase_device *kbdev, int slot)
 		return;
 
 	kbase_csf_scheduler_spin_lock_assert_held(kbdev);
-	kbase_csf_fw_io_assert_opened(&kbdev->csf.fw_io);
 
 	kbase_csf_ring_csg_slots_doorbell(kbdev, (u32)(1 << slot));
 }
 
 void kbase_csf_ring_csg_slots_doorbell(struct kbase_device *kbdev, u32 slot_bitmap)
 {
+	const struct kbase_csf_global_iface *const global_iface = &kbdev->csf.global_iface;
 	const u32 allowed_bitmap = (u32)((1U << kbdev->csf.global_iface.group_num) - 1);
 	u32 value;
 
 	kbase_csf_scheduler_spin_lock_assert_held(kbdev);
-	kbase_csf_fw_io_assert_opened(&kbdev->csf.fw_io);
 
 	if (WARN_ON(slot_bitmap > allowed_bitmap))
 		return;
@@ -808,9 +806,9 @@ void kbase_csf_ring_csg_slots_doorbell(struct kbase_device *kbdev, u32 slot_bitm
 	 */
 	dmb(osh);
 
-	value = kbase_csf_fw_io_global_read(&kbdev->csf.fw_io, GLB_DB_ACK);
+	value = kbase_csf_firmware_global_output(global_iface, GLB_DB_ACK);
 	value ^= slot_bitmap;
-	kbase_csf_fw_io_global_write_mask(&kbdev->csf.fw_io, GLB_DB_REQ, value, slot_bitmap);
+	kbase_csf_firmware_global_input_mask(global_iface, GLB_DB_REQ, value, slot_bitmap);
 
 	kbase_csf_ring_doorbell(kbdev, CSF_KERNEL_DOORBELL_NR);
 }
@@ -832,7 +830,6 @@ void kbase_csf_ring_cs_kernel_doorbell(struct kbase_device *kbdev, int csi_index
 	u32 value;
 
 	kbase_csf_scheduler_spin_lock_assert_held(kbdev);
-	kbase_csf_fw_io_assert_opened(&kbdev->csf.fw_io);
 
 	if (WARN_ON(csg_nr < 0) || WARN_ON((u32)csg_nr >= kbdev->csf.global_iface.group_num))
 		return;
@@ -850,10 +847,9 @@ void kbase_csf_ring_cs_kernel_doorbell(struct kbase_device *kbdev, int csi_index
 	 */
 	dmb(osh);
 
-	value = kbase_csf_fw_io_group_read(&kbdev->csf.fw_io, csg_nr, CSG_DB_ACK);
+	value = kbase_csf_firmware_csg_output(ginfo, CSG_DB_ACK);
 	value ^= (1U << csi_index);
-	kbase_csf_fw_io_group_write_mask(&kbdev->csf.fw_io, csg_nr, CSG_DB_REQ, value,
-					 1U << csi_index);
+	kbase_csf_firmware_csg_input_mask(ginfo, CSG_DB_REQ, value, 1U << csi_index);
 
 	if (likely(ring_csg_doorbell))
 		kbase_csf_ring_csg_doorbell(kbdev, csg_nr);
@@ -1309,6 +1305,12 @@ int kbase_csf_queue_group_create(struct kbase_context *const kctx,
 	const u32 tiler_count = hweight64(create->in.tiler_mask);
 	const u32 fragment_count = hweight64(create->in.fragment_mask);
 	const u32 compute_count = hweight64(create->in.compute_mask);
+	size_t i;
+
+	for (i = 0; i < ARRAY_SIZE(create->in.padding); i++) {
+		if (create->in.padding[i] != 0)
+			return -EINVAL;
+	}
 
 	mutex_lock(&kctx->csf.lock);
 
@@ -1720,8 +1722,7 @@ void kbase_csf_ctx_report_page_fault_for_active_groups(struct kbase_context *kct
 	kbase_csf_scheduler_spin_unlock(kbdev, flags);
 }
 
-void kbase_csf_ctx_handle_fault(struct kbase_context *kctx, struct kbase_fault *fault,
-				bool fw_unresponsive)
+void kbase_csf_ctx_handle_fault(struct kbase_context *kctx, struct kbase_fault *fault)
 {
 	int gr;
 	bool reported = false;
@@ -1756,12 +1757,6 @@ void kbase_csf_ctx_handle_fault(struct kbase_context *kctx, struct kbase_fault *
 		struct kbase_queue_group *const group = kctx->csf.queue_groups[gr];
 
 		if (group && group->run_state != KBASE_CSF_GROUP_TERMINATED) {
-			/* If the FW is known to have become unresponsive, then the wait for CSG
-			 * termination request can be safely skipped.
-			 */
-			if (fw_unresponsive)
-				group->cs_unrecoverable = true;
-
 			term_queue_group(group);
 			/* This would effectively be a NOP if the fatal error was already added to
 			 * the error_list by kbase_csf_ctx_report_page_fault_for_active_groups().
@@ -1831,7 +1826,7 @@ void kbase_csf_ctx_term(struct kbase_context *kctx)
 	/* Wait for the firmware error work item to also finish as it could
 	 * be affecting this outgoing context also.
 	 */
-	flush_work(&kctx->kbdev->csf.glb_fatal_work);
+	flush_work(&kctx->kbdev->csf.fw_error_work);
 
 	/* A work item to handle page_fault/bus_fault/gpu_fault could be
 	 * pending for the outgoing context. Flush the workqueue that will
@@ -1892,8 +1887,8 @@ void kbase_csf_ctx_term(struct kbase_context *kctx)
  *                    CSI.
  *
  * @group:  Pointer to the CSG group the oom-event belongs to.
- * @group_id: CSG index.
- * @stream_id: CSI index.
+ * @stream: Pointer to the structure containing info provided by the firmware
+ *          about the CSI.
  *
  * This function will handle the OoM event request from the firmware for the
  * CS. It will retrieve the address of heap context and heap's
@@ -1906,25 +1901,19 @@ void kbase_csf_ctx_term(struct kbase_context *kctx)
  * Return: 0 if successfully handled the request, otherwise a negative error
  *         code on failure.
  */
-static int handle_oom_event(struct kbase_queue_group *const group, u32 group_id, u32 stream_id)
+static int handle_oom_event(struct kbase_queue_group *const group,
+			    struct kbase_csf_cmd_stream_info const *const stream)
 {
 	struct kbase_context *const kctx = group->kctx;
-	u64 gpu_heap_va = kbase_csf_fw_io_stream_read(&kctx->kbdev->csf.fw_io, group_id, stream_id,
-						      CS_HEAP_ADDRESS_LO) |
-			  ((u64)kbase_csf_fw_io_stream_read(&kctx->kbdev->csf.fw_io, group_id,
-							    stream_id, CS_HEAP_ADDRESS_HI)
-			   << 32);
-	const u32 vt_start = kbase_csf_fw_io_stream_read(&kctx->kbdev->csf.fw_io, group_id,
-							 stream_id, CS_HEAP_VT_START);
-	const u32 vt_end = kbase_csf_fw_io_stream_read(&kctx->kbdev->csf.fw_io, group_id, stream_id,
-						       CS_HEAP_VT_END);
-	const u32 frag_end = kbase_csf_fw_io_stream_read(&kctx->kbdev->csf.fw_io, group_id,
-							 stream_id, CS_HEAP_FRAG_END);
+	u64 gpu_heap_va = kbase_csf_firmware_cs_output(stream, CS_HEAP_ADDRESS_LO) |
+			  ((u64)kbase_csf_firmware_cs_output(stream, CS_HEAP_ADDRESS_HI) << 32);
+	const u32 vt_start = kbase_csf_firmware_cs_output(stream, CS_HEAP_VT_START);
+	const u32 vt_end = kbase_csf_firmware_cs_output(stream, CS_HEAP_VT_END);
+	const u32 frag_end = kbase_csf_firmware_cs_output(stream, CS_HEAP_FRAG_END);
 	u32 renderpasses_in_flight;
 	u32 pending_frag_count;
 	u64 new_chunk_ptr;
 	int err;
-	unsigned long fw_io_flags;
 
 	if ((frag_end > vt_end) || (vt_end >= vt_start)) {
 		dev_warn(
@@ -1954,22 +1943,11 @@ static int handle_oom_event(struct kbase_queue_group *const group, u32 group_id,
 	} else if (err)
 		return err;
 
-	/* Force the FW transaction for tiler heap OOM. In case of an unresponsive MCU,
-	 * the new configuration will take effect after the GPU resumes.
-	 */
-	kbase_csf_fw_io_open_force(&kctx->kbdev->csf.fw_io, &fw_io_flags);
+	kbase_csf_firmware_cs_input(stream, CS_TILER_HEAP_START_LO, new_chunk_ptr & 0xFFFFFFFF);
+	kbase_csf_firmware_cs_input(stream, CS_TILER_HEAP_START_HI, new_chunk_ptr >> 32);
 
-	kbase_csf_fw_io_stream_write(&kctx->kbdev->csf.fw_io, group_id, stream_id,
-				     CS_TILER_HEAP_START_LO, new_chunk_ptr & 0xFFFFFFFF);
-	kbase_csf_fw_io_stream_write(&kctx->kbdev->csf.fw_io, group_id, stream_id,
-				     CS_TILER_HEAP_START_HI, new_chunk_ptr >> 32);
-
-	kbase_csf_fw_io_stream_write(&kctx->kbdev->csf.fw_io, group_id, stream_id,
-				     CS_TILER_HEAP_END_LO, new_chunk_ptr & 0xFFFFFFFF);
-	kbase_csf_fw_io_stream_write(&kctx->kbdev->csf.fw_io, group_id, stream_id,
-				     CS_TILER_HEAP_END_HI, new_chunk_ptr >> 32);
-
-	kbase_csf_fw_io_close(&kctx->kbdev->csf.fw_io, fw_io_flags);
+	kbase_csf_firmware_cs_input(stream, CS_TILER_HEAP_END_LO, new_chunk_ptr & 0xFFFFFFFF);
+	kbase_csf_firmware_cs_input(stream, CS_TILER_HEAP_END_HI, new_chunk_ptr >> 32);
 
 	return 0;
 }
@@ -2038,9 +2016,11 @@ static void kbase_queue_oom_event(struct kbase_queue *const queue)
 	struct kbase_device *const kbdev = kctx->kbdev;
 	struct kbase_queue_group *group;
 	int slot_num, err;
+	struct kbase_csf_cmd_stream_group_info const *ginfo;
+	struct kbase_csf_cmd_stream_info const *stream;
 	int csi_index = queue->csi_index;
 	u32 cs_oom_ack, cs_oom_req;
-	unsigned long flags, fw_io_flags;
+	unsigned long flags;
 
 	lockdep_assert_held(&kctx->csf.lock);
 
@@ -2067,11 +2047,10 @@ static void kbase_queue_oom_event(struct kbase_queue *const queue)
 	if (kbase_ctx_flag(kctx, KCTX_AS_DISABLED_ON_FAULT))
 		goto unlock;
 
-	cs_oom_ack = kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, slot_num, csi_index, CS_ACK) &
-		     CS_ACK_TILER_OOM_MASK;
-	cs_oom_req =
-		kbase_csf_fw_io_stream_input_read(&kbdev->csf.fw_io, slot_num, csi_index, CS_REQ) &
-		CS_REQ_TILER_OOM_MASK;
+	ginfo = &kbdev->csf.global_iface.groups[slot_num];
+	stream = &ginfo->streams[csi_index];
+	cs_oom_ack = kbase_csf_firmware_cs_output(stream, CS_ACK) & CS_ACK_TILER_OOM_MASK;
+	cs_oom_req = kbase_csf_firmware_cs_input_read(stream, CS_REQ) & CS_REQ_TILER_OOM_MASK;
 
 	/* The group could have already undergone suspend-resume cycle before
 	 * this work item got a chance to execute. On CSG resume the CS_ACK
@@ -2083,17 +2062,11 @@ static void kbase_queue_oom_event(struct kbase_queue *const queue)
 	if (cs_oom_ack == cs_oom_req)
 		goto unlock;
 
-	err = handle_oom_event(group, slot_num, csi_index);
+	err = handle_oom_event(group, stream);
 
 	kbase_csf_scheduler_spin_lock(kbdev, &flags);
-	/* Force the FW transaction for tiler heap OOM. In case of an unresponsive MCU,
-	 * the new configuration will take effect after the GPU resumes.
-	 */
-	kbase_csf_fw_io_open_force(&kbdev->csf.fw_io, &fw_io_flags);
-	kbase_csf_fw_io_stream_write_mask(&kbdev->csf.fw_io, slot_num, csi_index, CS_REQ,
-					  cs_oom_ack, CS_REQ_TILER_OOM_MASK);
+	kbase_csf_firmware_cs_input_mask(stream, CS_REQ, cs_oom_ack, CS_REQ_TILER_OOM_MASK);
 	kbase_csf_ring_cs_kernel_doorbell(kbdev, csi_index, slot_num, true);
-	kbase_csf_fw_io_close(&kbdev->csf.fw_io, fw_io_flags);
 	kbase_csf_scheduler_spin_unlock(kbdev, flags);
 
 	if (unlikely(err)) {
@@ -2214,6 +2187,7 @@ static void handle_progress_timer_events(struct kbase_device *const kbdev, unsig
 	u32 max_csg_slots = kbdev->csf.global_iface.group_num;
 	u32 csg_nr;
 	struct kbase_queue_group *group = NULL;
+	struct kbase_csf_cmd_stream_group_info *ginfo;
 
 	kbase_csf_scheduler_spin_lock_assert_held(kbdev);
 	if (likely(bitmap_empty(slot_mask, MAX_SUPPORTED_CSGS)))
@@ -2222,8 +2196,9 @@ static void handle_progress_timer_events(struct kbase_device *const kbdev, unsig
 	/* Log each timeout and Update timestamp of compute progress timeout */
 	for_each_set_bit(csg_nr, slot_mask, max_csg_slots) {
 		group = kbdev->csf.scheduler.csg_slots[csg_nr].resident_group;
-		group->progress_timer_state = kbase_csf_fw_io_group_read(&kbdev->csf.fw_io, csg_nr,
-									 CSG_PROGRESS_TIMER_STATE);
+		ginfo = &kbdev->csf.global_iface.groups[csg_nr];
+		group->progress_timer_state =
+			kbase_csf_firmware_csg_output(ginfo, CSG_PROGRESS_TIMER_STATE);
 
 		dev_info(
 			kbdev->dev,
@@ -2355,27 +2330,24 @@ static void report_group_fatal_error(struct kbase_queue_group *const group)
 static void handle_fault_event(struct kbase_queue *const queue, const u32 cs_ack)
 {
 	struct kbase_device *const kbdev = queue->kctx->kbdev;
-	u32 group_id = queue->group->csg_nr;
-	u32 stream_id = queue->csi_index;
-	const u32 cs_fault =
-		kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, group_id, stream_id, CS_FAULT);
-	const u64 cs_fault_info = kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, group_id,
-							      stream_id, CS_FAULT_INFO_LO) |
-				  ((u64)kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, group_id,
-								    stream_id, CS_FAULT_INFO_HI)
-				   << 32);
+	struct kbase_csf_cmd_stream_group_info const *ginfo =
+		&kbdev->csf.global_iface.groups[queue->group->csg_nr];
+	struct kbase_csf_cmd_stream_info const *stream = &ginfo->streams[queue->csi_index];
+	const u32 cs_fault = kbase_csf_firmware_cs_output(stream, CS_FAULT);
+	const u64 cs_fault_info =
+		kbase_csf_firmware_cs_output(stream, CS_FAULT_INFO_LO) |
+		((u64)kbase_csf_firmware_cs_output(stream, CS_FAULT_INFO_HI) << 32);
 	const u8 cs_fault_exception_type = CS_FAULT_EXCEPTION_TYPE_GET(cs_fault);
 	const u32 cs_fault_exception_data = CS_FAULT_EXCEPTION_DATA_GET(cs_fault);
 	const u64 cs_fault_info_exception_data = CS_FAULT_INFO_EXCEPTION_DATA_GET(cs_fault_info);
-	bool has_trace_info = false;
+	bool use_old_log_format = true;
 	bool skip_fault_report = kbase_ctx_flag(queue->kctx, KCTX_PAGE_FAULT_REPORT_SKIP);
 
 
 	kbase_csf_scheduler_spin_lock_assert_held(kbdev);
-	kbase_csf_fw_io_assert_opened(&kbdev->csf.fw_io);
 
 
-	if (!has_trace_info && !skip_fault_report)
+	if (use_old_log_format && !skip_fault_report)
 		dev_warn(kbdev->dev,
 			 "Ctx %d_%d Group %d CSG %d CSI: %d\n"
 			 "CS_FAULT.EXCEPTION_TYPE: 0x%x (%s)\n"
@@ -2395,8 +2367,7 @@ static void handle_fault_event(struct kbase_queue *const queue, const u32 cs_ack
 	 * to enter into recoverable state.
 	 */
 	if (likely(!kbase_debug_csf_fault_notify(kbdev, queue->kctx, DF_CS_FAULT))) {
-		kbase_csf_fw_io_stream_write_mask(&kbdev->csf.fw_io, group_id, stream_id, CS_REQ,
-						  cs_ack, CS_REQ_FAULT_MASK);
+		kbase_csf_firmware_cs_input_mask(stream, CS_REQ, cs_ack, CS_REQ_FAULT_MASK);
 		kbase_csf_ring_cs_kernel_doorbell(kbdev, queue->csi_index, queue->group->csg_nr,
 						  true);
 		queue->cs_error_acked = true;
@@ -2481,33 +2452,29 @@ static void cs_error_worker(struct work_struct *const data)
 			report_queue_error(queue, queue->cs_error, queue->cs_error_info, group,
 					   false);
 		if (unlikely(!queue->cs_error_acked)) {
-			unsigned long flags, fw_io_flags;
+			unsigned long flags;
 			int slot_num;
 
 			kbase_csf_scheduler_spin_lock(kbdev, &flags);
-			if (kbase_csf_fw_io_open(&kbdev->csf.fw_io, &fw_io_flags)) {
-				kbase_csf_scheduler_spin_unlock(kbdev, flags);
-				goto unlock;
-			}
 			slot_num = kbase_csf_scheduler_group_get_slot_locked(group);
 			if (likely(slot_num >= 0)) {
-				u32 const cs_ack = kbase_csf_fw_io_stream_read(
-					&kbdev->csf.fw_io, slot_num, queue->csi_index, CS_ACK);
-				u32 const cs_req = kbase_csf_fw_io_stream_input_read(
-					&kbdev->csf.fw_io, slot_num, queue->csi_index, CS_REQ);
+				struct kbase_csf_cmd_stream_group_info const *ginfo =
+					&kbdev->csf.global_iface.groups[slot_num];
+				struct kbase_csf_cmd_stream_info const *stream =
+					&ginfo->streams[queue->csi_index];
+				u32 const cs_ack = kbase_csf_firmware_cs_output(stream, CS_ACK);
+				u32 const cs_req = kbase_csf_firmware_cs_input_read(stream, CS_REQ);
 
 				/* Acknowledge the fault and ring the doorbell for the queue
 				 * if it hasn't yet done.
 				 */
 				if ((cs_ack & CS_ACK_FAULT_MASK) != (cs_req & CS_REQ_FAULT_MASK)) {
-					kbase_csf_fw_io_stream_write_mask(
-						&kbdev->csf.fw_io, slot_num, queue->csi_index,
-						CS_REQ, cs_ack, CS_REQ_FAULT_MASK);
+					kbase_csf_firmware_cs_input_mask(stream, CS_REQ, cs_ack,
+									 CS_REQ_FAULT_MASK);
 					kbase_csf_ring_cs_kernel_doorbell(kbdev, queue->csi_index,
 									  slot_num, true);
 				}
 			}
-			kbase_csf_fw_io_close(&kbdev->csf.fw_io, fw_io_flags);
 			kbase_csf_scheduler_spin_unlock(kbdev, flags);
 		}
 	} else {
@@ -2539,8 +2506,8 @@ unlock:
  * handle_fatal_event() - Handler for CS fatal.
  *
  * @queue:    Pointer to queue for which fatal event was received.
- * @group_id: CSG index.
- * @stream_id: CSI index.
+ * @stream:   Pointer to the structure containing info provided by the
+ *            firmware about the CSI.
  * @cs_ack: Value of the CS_ACK register in the CS kernel input page used for
  *          the queue.
  *
@@ -2549,28 +2516,24 @@ unlock:
  * Enqueue a work item to terminate the group and report the fatal error
  * to user space.
  */
-static void handle_fatal_event(struct kbase_queue *const queue, u32 group_id, u32 stream_id,
-			       u32 cs_ack)
+static void handle_fatal_event(struct kbase_queue *const queue,
+			       struct kbase_csf_cmd_stream_info const *const stream, u32 cs_ack)
 {
 	struct kbase_device *const kbdev = queue->kctx->kbdev;
-	const u32 cs_fatal =
-		kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, group_id, stream_id, CS_FATAL);
-	const u64 cs_fatal_info = kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, group_id,
-							      stream_id, CS_FATAL_INFO_LO) |
-				  ((u64)kbase_csf_fw_io_stream_read(&kbdev->csf.fw_io, group_id,
-								    stream_id, CS_FATAL_INFO_HI)
-				   << 32);
+	const u32 cs_fatal = kbase_csf_firmware_cs_output(stream, CS_FATAL);
+	const u64 cs_fatal_info =
+		kbase_csf_firmware_cs_output(stream, CS_FATAL_INFO_LO) |
+		((u64)kbase_csf_firmware_cs_output(stream, CS_FATAL_INFO_HI) << 32);
 	const u32 cs_fatal_exception_type = CS_FATAL_EXCEPTION_TYPE_GET(cs_fatal);
 	const u32 cs_fatal_exception_data = CS_FATAL_EXCEPTION_DATA_GET(cs_fatal);
 	const u64 cs_fatal_info_exception_data = CS_FATAL_INFO_EXCEPTION_DATA_GET(cs_fatal_info);
-	bool has_trace_info = false;
+	bool use_old_log_format = true;
 	bool skip_fault_report = kbase_ctx_flag(queue->kctx, KCTX_PAGE_FAULT_REPORT_SKIP);
 
 
 	kbase_csf_scheduler_spin_lock_assert_held(kbdev);
-	kbase_csf_fw_io_assert_opened(&kbdev->csf.fw_io);
 
-	if (!has_trace_info && !skip_fault_report)
+	if (use_old_log_format && !skip_fault_report)
 		dev_warn(kbdev->dev,
 			 "Ctx %d_%d Group %d CSG %d CSI: %d\n"
 			 "CS_FATAL.EXCEPTION_TYPE: 0x%x (%s)\n"
@@ -2581,19 +2544,23 @@ static void handle_fatal_event(struct kbase_queue *const queue, u32 group_id, u3
 			 kbase_gpu_exception_name(cs_fatal_exception_type), cs_fatal_exception_data,
 			 cs_fatal_info_exception_data);
 
-	kbase_debug_csf_fault_notify(kbdev, queue->kctx, DF_CS_FATAL);
-	if (cs_fatal_exception_type == CS_FATAL_EXCEPTION_TYPE_CS_UNRECOVERABLE) {
-		queue->group->cs_unrecoverable = true;
-		if (kbase_prepare_to_reset_gpu(queue->kctx->kbdev, RESET_FLAGS_NONE))
-			kbase_reset_gpu(queue->kctx->kbdev);
+	if (cs_fatal_exception_type == CS_FATAL_EXCEPTION_TYPE_FIRMWARE_INTERNAL_ERROR) {
+		kbase_debug_csf_fault_notify(kbdev, queue->kctx, DF_FW_INTERNAL_ERROR);
+		queue_work(system_wq, &kbdev->csf.fw_error_work);
+	} else {
+		kbase_debug_csf_fault_notify(kbdev, queue->kctx, DF_CS_FATAL);
+		if (cs_fatal_exception_type == CS_FATAL_EXCEPTION_TYPE_CS_UNRECOVERABLE) {
+			queue->group->cs_unrecoverable = true;
+			if (kbase_prepare_to_reset_gpu(queue->kctx->kbdev, RESET_FLAGS_NONE))
+				kbase_reset_gpu(queue->kctx->kbdev);
+		}
+		queue->cs_error = cs_fatal;
+		queue->cs_error_info = cs_fatal_info;
+		queue->cs_error_fatal = true;
+		queue_work(queue->kctx->csf.wq, &queue->cs_error_work);
 	}
-	queue->cs_error = cs_fatal;
-	queue->cs_error_info = cs_fatal_info;
-	queue->cs_error_fatal = true;
-	queue_work(queue->kctx->csf.wq, &queue->cs_error_work);
 
-	kbase_csf_fw_io_stream_write_mask(&kbdev->csf.fw_io, group_id, stream_id, CS_REQ, cs_ack,
-					  CS_REQ_FATAL_MASK);
+	kbase_csf_firmware_cs_input_mask(stream, CS_REQ, cs_ack, CS_REQ_FATAL_MASK);
 
 }
 
@@ -2601,7 +2568,7 @@ static void handle_fatal_event(struct kbase_queue *const queue, u32 group_id, u3
  * process_cs_interrupts() - Process interrupts for a CS.
  *
  * @group:  Pointer to GPU command queue group data.
- * @group_id: CSG index.
+ * @ginfo:  The CSG interface provided by the firmware.
  * @irqreq: CSG's IRQ request bitmask (one bit per CS).
  * @irqack: CSG's IRQ acknowledge bitmask (one bit per CS).
  * @track: Pointer that tracks the highest scanout priority idle CSG
@@ -2613,18 +2580,16 @@ static void handle_fatal_event(struct kbase_queue *const queue, u32 group_id, u3
  * CSs indicated by bits whose value differs. The actions required
  * are then determined by examining which notification flags differ between
  * the request and acknowledge registers for the individual CS(s).
- *
- * Return: -ENODEV on unresponsive MCU, 0 otherwise.
  */
-static int process_cs_interrupts(struct kbase_queue_group *const group, u32 group_id,
-				 u32 const irqreq, u32 const irqack,
-				 struct irq_idle_and_protm_track *track)
+static void process_cs_interrupts(struct kbase_queue_group *const group,
+				  struct kbase_csf_cmd_stream_group_info const *const ginfo,
+				  u32 const irqreq, u32 const irqack,
+				  struct irq_idle_and_protm_track *track)
 {
 	struct kbase_device *const kbdev = group->kctx->kbdev;
 	u32 remaining = irqreq ^ irqack;
 	bool protm_pend = false;
 	const bool group_suspending = !kbase_csf_scheduler_group_events_enabled(kbdev, group);
-	unsigned long fw_io_flags;
 
 	kbase_csf_scheduler_spin_lock_assert_held(kbdev);
 
@@ -2640,32 +2605,21 @@ static int process_cs_interrupts(struct kbase_queue_group *const group, u32 grou
 		 * requires scheduler spinlock.
 		 */
 		if (queue && !WARN_ON(queue->csi_index != (s8)i)) {
-			struct kbase_csf_fw_io *fw_io = &kbdev->csf.fw_io;
-			u32 stream_id = i;
-			u32 const cs_req = kbase_csf_fw_io_stream_input_read(fw_io, group_id,
-									     stream_id, CS_REQ);
-			u32 const cs_ack =
-				kbase_csf_fw_io_stream_read(fw_io, group_id, stream_id, CS_ACK);
+			struct kbase_csf_cmd_stream_info const *const stream = &ginfo->streams[i];
+			u32 const cs_req = kbase_csf_firmware_cs_input_read(stream, CS_REQ);
+			u32 const cs_ack = kbase_csf_firmware_cs_output(stream, CS_ACK);
 			struct workqueue_struct *wq = group->kctx->csf.wq;
 
 			if ((cs_ack & CS_ACK_FATAL_MASK) != (cs_req & CS_REQ_FATAL_MASK)) {
-				if (kbase_csf_fw_io_open(fw_io, &fw_io_flags))
-					return -ENODEV;
-
 				KBASE_KTRACE_ADD_CSF_GRP_Q(kbdev, CSI_INTERRUPT_FAULT, group, queue,
 							   cs_req ^ cs_ack);
-				handle_fatal_event(queue, group_id, stream_id, cs_ack);
-				kbase_csf_fw_io_close(fw_io, fw_io_flags);
+				handle_fatal_event(queue, stream, cs_ack);
 			}
 
 			if ((cs_ack & CS_ACK_FAULT_MASK) != (cs_req & CS_REQ_FAULT_MASK)) {
-				if (kbase_csf_fw_io_open(fw_io, &fw_io_flags))
-					return -ENODEV;
-
 				KBASE_KTRACE_ADD_CSF_GRP_Q(kbdev, CSI_INTERRUPT_FAULT, group, queue,
 							   cs_req ^ cs_ack);
 				handle_fault_event(queue, cs_ack);
-				kbase_csf_fw_io_close(fw_io, fw_io_flags);
 			}
 
 			/* PROTM_PEND and TILER_OOM can be safely ignored
@@ -2735,8 +2689,6 @@ static int process_cs_interrupts(struct kbase_queue_group *const group, u32 grou
 				group->handle, group->csg_nr);
 		}
 	}
-
-	return 0;
 }
 
 /**
@@ -2757,37 +2709,29 @@ static int process_cs_interrupts(struct kbase_queue_group *const group, u32 grou
  * notification flags differ between those two register values.
  *
  * See process_cs_interrupts() for details of per-stream interrupt handling.
- *
- * Return: -ENODEV on unresponsive MCU, 0 otherwise.
  */
-static int process_csg_interrupts(struct kbase_device *const kbdev, u32 const csg_nr,
-				  struct irq_idle_and_protm_track *track,
-				  unsigned long *progress_timeout_slot_mask)
+static void process_csg_interrupts(struct kbase_device *const kbdev, u32 const csg_nr,
+				   struct irq_idle_and_protm_track *track,
+				   unsigned long *progress_timeout_slot_mask)
 {
-	struct kbase_csf_fw_io *fw_io = &kbdev->csf.fw_io;
+	struct kbase_csf_cmd_stream_group_info *ginfo;
 	struct kbase_queue_group *group = NULL;
 	u32 req, ack, irqreq, irqack;
-	int err;
-	unsigned long fw_io_flags;
 
 	kbase_csf_scheduler_spin_lock_assert_held(kbdev);
 
 	if (WARN_ON(csg_nr >= kbdev->csf.global_iface.group_num))
-		return 0;
+		return;
 
-	if (kbase_csf_fw_io_open(fw_io, &fw_io_flags))
-		return -ENODEV;
-
-	req = kbase_csf_fw_io_group_input_read(fw_io, csg_nr, CSG_REQ);
-	ack = kbase_csf_fw_io_group_read(fw_io, csg_nr, CSG_ACK);
-	irqreq = kbase_csf_fw_io_group_read(fw_io, csg_nr, CSG_IRQ_REQ);
-	irqack = kbase_csf_fw_io_group_input_read(fw_io, csg_nr, CSG_IRQ_ACK);
+	ginfo = &kbdev->csf.global_iface.groups[csg_nr];
+	req = kbase_csf_firmware_csg_input_read(ginfo, CSG_REQ);
+	ack = kbase_csf_firmware_csg_output(ginfo, CSG_ACK);
+	irqreq = kbase_csf_firmware_csg_output(ginfo, CSG_IRQ_REQ);
+	irqack = kbase_csf_firmware_csg_input_read(ginfo, CSG_IRQ_ACK);
 
 	/* There may not be any pending CSG/CS interrupts to process */
-	if ((req == ack) && (irqreq == irqack)) {
-		kbase_csf_fw_io_close(fw_io, fw_io_flags);
-		return 0;
-	}
+	if ((req == ack) && (irqreq == irqack))
+		return;
 
 	/* Immediately set IRQ_ACK bits to be same as the IRQ_REQ bits before
 	 * examining the CS_ACK & CS_REQ bits. This would ensure that Host
@@ -2795,7 +2739,7 @@ static int process_csg_interrupts(struct kbase_device *const kbdev, u32 const cs
 	 * whilst Host is servicing an interrupt for the CS, firmware sends
 	 * another interrupt for that CS.
 	 */
-	kbase_csf_fw_io_group_write(fw_io, csg_nr, CSG_IRQ_ACK, irqreq);
+	kbase_csf_firmware_csg_input(ginfo, CSG_IRQ_ACK, irqreq);
 
 	group = kbase_csf_scheduler_get_group_on_slot(kbdev, csg_nr);
 
@@ -2807,31 +2751,22 @@ static int process_csg_interrupts(struct kbase_device *const kbdev, u32 const cs
 	 * spinlock is held and for freeing a group that is resident on a CSG
 	 * slot scheduler spinlock is required.
 	 */
-	if (!group) {
-		kbase_csf_fw_io_close(fw_io, fw_io_flags);
-		return 0;
-	}
+	if (!group)
+		return;
 
-	if (WARN_ON((u32)kbase_csf_scheduler_group_get_slot_locked(group) != csg_nr)) {
-		kbase_csf_fw_io_close(fw_io, fw_io_flags);
-		return 0;
-	}
+	if (WARN_ON((u32)kbase_csf_scheduler_group_get_slot_locked(group) != csg_nr))
+		return;
 
 	KBASE_KTRACE_ADD_CSF_GRP(kbdev, CSG_INTERRUPT_PROCESS_START, group, (u64)csg_nr);
 
-	kbase_csf_handle_csg_sync_update(kbdev, csg_nr, group, req, ack);
-	kbase_csf_fw_io_close(fw_io, fw_io_flags);
+	kbase_csf_handle_csg_sync_update(kbdev, ginfo, group, req, ack);
 
 	if ((req ^ ack) & CSG_REQ_IDLE_MASK) {
 		struct kbase_csf_scheduler *scheduler = &kbdev->csf.scheduler;
 
-		if (kbase_csf_fw_io_open(fw_io, &fw_io_flags))
-			return -ENODEV;
-
 		KBASE_TLSTREAM_TL_KBASE_DEVICE_CSG_IDLE(kbdev, kbdev->id, csg_nr);
 
-		kbase_csf_fw_io_group_write_mask(fw_io, csg_nr, CSG_REQ, ack, CSG_REQ_IDLE_MASK);
-		kbase_csf_fw_io_close(fw_io, fw_io_flags);
+		kbase_csf_firmware_csg_input_mask(ginfo, CSG_REQ, ack, CSG_REQ_IDLE_MASK);
 
 		set_bit(csg_nr, scheduler->csg_slots_idle_mask);
 		KBASE_KTRACE_ADD_CSF_GRP(kbdev, CSG_SLOT_IDLE_SET, group,
@@ -2859,12 +2794,8 @@ static int process_csg_interrupts(struct kbase_device *const kbdev, u32 const cs
 	}
 
 	if ((req ^ ack) & CSG_REQ_PROGRESS_TIMER_EVENT_MASK) {
-		if (kbase_csf_fw_io_open(fw_io, &fw_io_flags))
-			return -ENODEV;
-
-		kbase_csf_fw_io_group_write_mask(fw_io, csg_nr, CSG_REQ, ack,
-						 CSG_REQ_PROGRESS_TIMER_EVENT_MASK);
-		kbase_csf_fw_io_close(fw_io, fw_io_flags);
+		kbase_csf_firmware_csg_input_mask(ginfo, CSG_REQ, ack,
+						  CSG_REQ_PROGRESS_TIMER_EVENT_MASK);
 
 		KBASE_KTRACE_ADD_CSF_GRP(kbdev, CSG_INTERRUPT_PROGRESS_TIMER_EVENT, group,
 					 req ^ ack);
@@ -2873,11 +2804,10 @@ static int process_csg_interrupts(struct kbase_device *const kbdev, u32 const cs
 
 	}
 
-	err = process_cs_interrupts(group, csg_nr, irqreq, irqack, track);
+	process_cs_interrupts(group, ginfo, irqreq, irqack, track);
 
 	KBASE_KTRACE_ADD_CSF_GRP(kbdev, CSG_INTERRUPT_PROCESS_END, group,
 				 ((u64)req ^ ack) | (((u64)irqreq ^ irqack) << 32));
-	return err;
 }
 
 /**
@@ -2891,13 +2821,10 @@ static int process_csg_interrupts(struct kbase_device *const kbdev, u32 const cs
  * counters. For example, on completion of a performance counter sample. It is
  * expected that the scheduler spinlock is already held on calling this
  * function.
- *
- * Return: -ENODEV on unresponsive MCU, 0 otherwise.
  */
-static int process_prfcnt_interrupts(struct kbase_device *kbdev, u32 glb_req, u32 glb_ack)
+static void process_prfcnt_interrupts(struct kbase_device *kbdev, u32 glb_req, u32 glb_ack)
 {
-	struct kbase_csf_fw_io *fw_io = &kbdev->csf.fw_io;
-	unsigned long fw_io_flags;
+	const struct kbase_csf_global_iface *const global_iface = &kbdev->csf.global_iface;
 
 	lockdep_assert_held(&kbdev->csf.scheduler.interrupt_lock);
 
@@ -2927,11 +2854,6 @@ static int process_prfcnt_interrupts(struct kbase_device *kbdev, u32 glb_req, u3
 	/* Process PRFCNT_THRESHOLD interrupt. */
 	if ((glb_req ^ glb_ack) & GLB_REQ_PRFCNT_THRESHOLD_MASK) {
 		dev_dbg(kbdev->dev, "PRFCNT_THRESHOLD interrupt received.");
-		if (kbase_csf_fw_io_open(fw_io, &fw_io_flags)) {
-			dev_dbg(kbdev->dev,
-				"Skipping PRFCNT_THRESHOLD interrupt handling due to unresponsive MCU.");
-			return -ENODEV;
-		}
 
 		kbase_hwcnt_backend_csf_on_prfcnt_threshold(&kbdev->hwcnt_gpu_iface);
 
@@ -2940,19 +2862,13 @@ static int process_prfcnt_interrupts(struct kbase_device *kbdev, u32 glb_req, u3
 		 * flag in order to enable reporting of another
 		 * PRFCNT_THRESHOLD event.
 		 */
-		kbase_csf_fw_io_global_write_mask(fw_io, GLB_REQ, glb_ack,
-						  GLB_REQ_PRFCNT_THRESHOLD_MASK);
-		kbase_csf_fw_io_close(fw_io, fw_io_flags);
+		kbase_csf_firmware_global_input_mask(global_iface, GLB_REQ, glb_ack,
+						     GLB_REQ_PRFCNT_THRESHOLD_MASK);
 	}
 
 	/* Process PRFCNT_OVERFLOW interrupt. */
 	if ((glb_req ^ glb_ack) & GLB_REQ_PRFCNT_OVERFLOW_MASK) {
 		dev_dbg(kbdev->dev, "PRFCNT_OVERFLOW interrupt received.");
-		if (kbase_csf_fw_io_open(fw_io, &fw_io_flags)) {
-			dev_dbg(kbdev->dev,
-				"Skipping PRFCNT_OVERFLOW interrupt handling due to unresponsive MCU.");
-			return -ENODEV;
-		}
 
 		kbase_hwcnt_backend_csf_on_prfcnt_overflow(&kbdev->hwcnt_gpu_iface);
 
@@ -2961,12 +2877,9 @@ static int process_prfcnt_interrupts(struct kbase_device *kbdev, u32 glb_req, u3
 		 * flag in order to enable reporting of another
 		 * PRFCNT_OVERFLOW event.
 		 */
-		kbase_csf_fw_io_global_write_mask(fw_io, GLB_REQ, glb_ack,
-						  GLB_REQ_PRFCNT_OVERFLOW_MASK);
-		kbase_csf_fw_io_close(fw_io, fw_io_flags);
+		kbase_csf_firmware_global_input_mask(global_iface, GLB_REQ, glb_ack,
+						     GLB_REQ_PRFCNT_OVERFLOW_MASK);
 	}
-
-	return 0;
 }
 
 /**
@@ -2998,7 +2911,6 @@ static inline void check_protm_enter_req_complete(struct kbase_device *kbdev, u3
 	dev_dbg(kbdev->dev, "Protected mode entry interrupt received");
 
 	kbdev->protected_mode = true;
-
 	kbase_ipa_protection_mode_switch_event(kbdev);
 	kbase_ipa_control_protm_entered(kbdev);
 	kbase_hwcnt_backend_csf_protm_entered(&kbdev->hwcnt_gpu_iface);
@@ -3012,27 +2924,19 @@ static inline void check_protm_enter_req_complete(struct kbase_device *kbdev, u3
  *
  * This function handles the PROTM_EXIT interrupt and sends notification
  * about the protected mode exit to components like HWC, IPA_CONTROL.
- *
- * Return: -ENODEV on unresponsive MCU, 0 otherwise.
  */
-static inline int process_protm_exit(struct kbase_device *kbdev, u32 glb_ack)
+static inline void process_protm_exit(struct kbase_device *kbdev, u32 glb_ack)
 {
-	struct kbase_csf_fw_io *fw_io = &kbdev->csf.fw_io;
+	const struct kbase_csf_global_iface *const global_iface = &kbdev->csf.global_iface;
 	struct kbase_csf_scheduler *scheduler = &kbdev->csf.scheduler;
-	unsigned long fw_io_flags;
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 	kbase_csf_scheduler_spin_lock_assert_held(kbdev);
 
 	dev_dbg(kbdev->dev, "Protected mode exit interrupt received");
 
-	if (kbase_csf_fw_io_open(fw_io, &fw_io_flags))
-		return -ENODEV;
-
-	kbase_csf_fw_io_global_write_mask(&kbdev->csf.fw_io, GLB_REQ, glb_ack,
-					  GLB_REQ_PROTM_EXIT_MASK);
-
-	kbase_csf_fw_io_close(&kbdev->csf.fw_io, fw_io_flags);
+	kbase_csf_firmware_global_input_mask(global_iface, GLB_REQ, glb_ack,
+					     GLB_REQ_PROTM_EXIT_MASK);
 
 	if (likely(scheduler->active_protm_grp)) {
 		KBASE_KTRACE_ADD_CSF_GRP(kbdev, SCHEDULER_PROTM_EXIT, scheduler->active_protm_grp,
@@ -3051,8 +2955,6 @@ static inline int process_protm_exit(struct kbase_device *kbdev, u32 glb_ack)
 #if IS_ENABLED(CONFIG_MALI_CORESIGHT)
 	kbase_debug_coresight_csf_enable_pmode_exit(kbdev);
 #endif /* IS_ENABLED(CONFIG_MALI_CORESIGHT) */
-
-	return 0;
 }
 
 static inline void process_tracked_info_for_protm(struct kbase_device *kbdev,
@@ -3151,7 +3053,7 @@ static void handle_glb_fatal_event(struct kbase_device *kbdev,
 				   const struct kbase_csf_global_iface *const global_iface)
 {
 	const char *error_string = NULL;
-	const u32 fatal_status = kbase_csf_fw_io_global_read(&kbdev->csf.fw_io, GLB_FATAL_STATUS);
+	const u32 fatal_status = kbase_csf_firmware_global_output(global_iface, GLB_FATAL_STATUS);
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 	kbase_csf_scheduler_spin_lock_assert_held(kbdev);
@@ -3168,21 +3070,21 @@ static void handle_glb_fatal_event(struct kbase_device *kbdev,
 		dev_err(kbdev->dev, "GLB_FATAL_STATUS(OK) must be set with proper reason");
 	else {
 		dev_warn(kbdev->dev, "GLB_FATAL_STATUS: %s", error_string);
-		queue_work(system_wq, &kbdev->csf.glb_fatal_work);
+		if (kbase_prepare_to_reset_gpu_locked(kbdev, RESET_FLAGS_NONE))
+			kbase_reset_gpu_locked(kbdev);
 	}
 }
 
 void kbase_csf_interrupt(struct kbase_device *kbdev, u32 val)
 {
 	bool deferred_handling_glb_idle_irq = false;
-	int err;
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
 
 	KBASE_KTRACE_ADD(kbdev, CSF_INTERRUPT_START, NULL, val);
 
 	do {
-		unsigned long flags, fw_io_flags;
+		unsigned long flags;
 		u32 csg_interrupts = val & ~JOB_IRQ_GLOBAL_IF;
 		bool glb_idle_irq_received = false;
 
@@ -3196,23 +3098,17 @@ void kbase_csf_interrupt(struct kbase_device *kbdev, u32 val)
 			DECLARE_BITMAP(progress_timeout_csgs, MAX_SUPPORTED_CSGS) = { 0 };
 
 			kbase_csf_scheduler_spin_lock(kbdev, &flags);
-
 			/* Looping through and track the highest idle and protm groups.
 			 * Also track the groups for which progress timer timeout happened.
 			 */
 			while (csg_interrupts != 0) {
 				u32 const csg_nr = (u32)ffs((int)csg_interrupts) - 1;
 
-				err = process_csg_interrupts(kbdev, csg_nr, &track,
-							     progress_timeout_csgs);
-				/* Stop processing interrupts in case of an unresponsive MCU */
-				if (err) {
-					kbase_csf_scheduler_spin_unlock(kbdev, flags);
-					goto exit;
-				}
-
+				process_csg_interrupts(kbdev, csg_nr, &track,
+						       progress_timeout_csgs);
 				csg_interrupts &= ~(1U << csg_nr);
 			}
+
 			/* Handle protm from the tracked information */
 			process_tracked_info_for_protm(kbdev, &track);
 			/* Handle pending progress timeout(s) */
@@ -3229,78 +3125,54 @@ void kbase_csf_interrupt(struct kbase_device *kbdev, u32 val)
 
 			if (!kbdev->csf.firmware_reloaded)
 				kbase_csf_firmware_reload_completed(kbdev);
-			else if (kbdev->csf.fw_io.pages.output) {
+			else if (global_iface->output) {
 				u32 glb_req, glb_ack;
 
 				kbase_csf_scheduler_spin_lock(kbdev, &flags);
-
-				glb_req = kbase_csf_fw_io_global_input_read(&kbdev->csf.fw_io,
-									    GLB_REQ);
-				glb_ack = kbase_csf_fw_io_global_read(&kbdev->csf.fw_io, GLB_ACK);
+				glb_req =
+					kbase_csf_firmware_global_input_read(global_iface, GLB_REQ);
+				glb_ack = kbase_csf_firmware_global_output(global_iface, GLB_ACK);
 				KBASE_KTRACE_ADD(kbdev, CSF_INTERRUPT_GLB_REQ_ACK, NULL,
 						 glb_req ^ glb_ack);
 
 				check_protm_enter_req_complete(kbdev, glb_req, glb_ack);
 
-				if ((glb_req ^ glb_ack) & GLB_REQ_PROTM_EXIT_MASK) {
-					/* Stop processing interrupts in case of
-					 * an unresponsive MCU.
-					 */
-					err = process_protm_exit(kbdev, glb_ack);
-					if (err) {
-						kbase_csf_scheduler_spin_unlock(kbdev, flags);
-						goto exit;
-					}
-				}
+				if ((glb_req ^ glb_ack) & GLB_REQ_PROTM_EXIT_MASK)
+					process_protm_exit(kbdev, glb_ack);
+
 				/* Handle IDLE Hysteresis notification event */
 				if ((glb_req ^ glb_ack) & GLB_REQ_IDLE_EVENT_MASK) {
-					{
-						dev_dbg(kbdev->dev,
-							"Idle-hysteresis event flagged");
-
-						if (kbase_csf_fw_io_open(&kbdev->csf.fw_io,
-									 &fw_io_flags)) {
-							kbase_csf_scheduler_spin_unlock(kbdev,
-											flags);
-							goto exit;
-						}
-						kbase_csf_fw_io_global_write_mask(
-							&kbdev->csf.fw_io, GLB_REQ, glb_ack,
-							GLB_REQ_IDLE_EVENT_MASK);
-						kbase_csf_fw_io_close(&kbdev->csf.fw_io,
-								      fw_io_flags);
-
-						if (atomic_read(
-							    &kbdev->csf.scheduler.fw_soi_enabled)) {
-							/* The FW is going to sleep, we shall:
-							 * - Enable fast GPU idle handling to avoid
-							 *   confirming CSGs status in gpu_idle_worker().
-							 * - Enable doorbell mirroring to minimise the
-							 *   chance of KBase raising kernel doorbells which
-							 *   would cause the FW to be woken up.
-							 */
-							kbdev->csf.scheduler.fast_gpu_idle_handling =
-								true;
-							kbase_pm_enable_db_mirror_interrupt(kbdev);
-						}
-
-						glb_idle_irq_received = true;
-						/* Defer handling this IRQ to account for a race condition
-						 * where the idle worker could be executed before we have
-						 * finished handling all pending IRQs (including CSG IDLE
-						 * IRQs).
+					dev_dbg(kbdev->dev, "Idle-hysteresis event flagged");
+					kbase_csf_firmware_global_input_mask(
+						global_iface, GLB_REQ, glb_ack,
+						GLB_REQ_IDLE_EVENT_MASK);
+					if (atomic_read(&kbdev->csf.scheduler.fw_soi_enabled)) {
+						/* The FW is going to sleep, we shall:
+						 * - Enable fast GPU idle handling to avoid
+						 *   confirming CSGs status in gpu_idle_worker().
+						 * - Enable doorbell mirroring to minimise the
+						 *   chance of KBase raising kernel doorbells which
+						 *   would cause the FW to be woken up.
 						 */
-						deferred_handling_glb_idle_irq = true;
+						kbdev->csf.scheduler.fast_gpu_idle_handling = true;
+						kbase_pm_enable_db_mirror_interrupt(kbdev);
 					}
+
+					glb_idle_irq_received = true;
+					/* Defer handling this IRQ to account for a race condition
+					 * where the idle worker could be executed before we have
+					 * finished handling all pending IRQs (including CSG IDLE
+					 * IRQs).
+					 */
+					deferred_handling_glb_idle_irq = true;
 				}
 
 				if (glb_ack & GLB_ACK_FATAL_MASK)
 					handle_glb_fatal_event(kbdev, global_iface);
-				/* Stop processing interrupts in case of an unresponsive MCU */
-				err = process_prfcnt_interrupts(kbdev, glb_req, glb_ack);
+
+				process_prfcnt_interrupts(kbdev, glb_req, glb_ack);
+
 				kbase_csf_scheduler_spin_unlock(kbdev, flags);
-				if (err)
-					goto exit;
 
 				/* Invoke the MCU state machine as a state transition
 				 * might have completed.
@@ -3327,71 +3199,20 @@ void kbase_csf_interrupt(struct kbase_device *kbdev, u32 val)
 		kbase_csf_scheduler_process_gpu_idle_event(kbdev);
 		kbase_csf_scheduler_spin_unlock(kbdev, flags);
 	}
-exit:
+
 	wake_up_all(&kbdev->csf.event_wait);
 
 	KBASE_KTRACE_ADD(kbdev, CSF_INTERRUPT_END, NULL, val);
 }
 
-/**
- * handle_glb_fatal - Handler for GLB FATAL.
- *
- * @kbdev:  Pointer to kbase device
- *
- * Report global fatal error to user space for all GPU command queue groups
- * in the device, terminate them and reset GPU.
- */
-static void handle_glb_fatal(struct kbase_device *const kbdev)
-{
-	int as;
-
-	for (as = 0; as < kbdev->nr_hw_address_spaces; as++) {
-		unsigned long flags;
-		struct kbase_context *kctx;
-		struct kbase_fault fault;
-
-		if (as == MCU_AS_NR)
-			continue;
-		/* Only handle the fault for an active address space. Lock is
-		 * taken here to atomically get reference to context in an
-		 * active address space and retain its refcount.
-		 */
-		spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
-		kctx = kbase_ctx_sched_as_to_ctx_nolock(kbdev, (size_t)as);
-		if (kctx) {
-			kbase_ctx_sched_retain_ctx_refcount(kctx);
-			spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
-		} else {
-			spin_unlock_irqrestore(&kbdev->hwaccess_lock, flags);
-			continue;
-		}
-		fault = (struct kbase_fault){
-			.status = GPU_EXCEPTION_TYPE_SW_FAULT_1,
-		};
-		kbase_csf_ctx_handle_fault(kctx, &fault, true);
-		kbase_ctx_sched_release_ctx_lock(kctx);
-	}
-	if (kbase_prepare_to_reset_gpu(kbdev, RESET_FLAGS_HWC_UNRECOVERABLE_ERROR))
-		kbase_reset_gpu(kbdev);
-}
-
-void kbase_csf_glb_fatal_worker(struct work_struct *const data)
-{
-	struct kbase_device *const kbdev =
-		container_of(data, struct kbase_device, csf.glb_fatal_work);
-
-	handle_glb_fatal(kbdev);
-}
-
-void kbase_csf_handle_csg_sync_update(struct kbase_device *const kbdev, u32 group_id,
+void kbase_csf_handle_csg_sync_update(struct kbase_device *const kbdev,
+				      struct kbase_csf_cmd_stream_group_info *ginfo,
 				      struct kbase_queue_group *group, u32 req, u32 ack)
 {
 	kbase_csf_scheduler_spin_lock_assert_held(kbdev);
-	kbase_csf_fw_io_assert_opened(&kbdev->csf.fw_io);
 
 	if ((req ^ ack) & CSG_REQ_SYNC_UPDATE_MASK) {
-		kbase_csf_fw_io_group_write_mask(&kbdev->csf.fw_io, group_id, CSG_REQ, ack,
-						 CSG_REQ_SYNC_UPDATE_MASK);
+		kbase_csf_firmware_csg_input_mask(ginfo, CSG_REQ, ack, CSG_REQ_SYNC_UPDATE_MASK);
 
 		KBASE_KTRACE_ADD_CSF_GRP(kbdev, CSG_INTERRUPT_SYNC_UPDATE, group, req ^ ack);
 

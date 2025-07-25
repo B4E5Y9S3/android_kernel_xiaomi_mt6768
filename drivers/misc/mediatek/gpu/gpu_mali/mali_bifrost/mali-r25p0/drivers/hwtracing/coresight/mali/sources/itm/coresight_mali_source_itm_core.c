@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0 WITH Linux-syscall-note
 /*
  *
- * (C) COPYRIGHT 2022-2024 ARM Limited. All rights reserved.
+ * (C) COPYRIGHT 2022-2023 ARM Limited. All rights reserved.
  *
  * This program is free software and is provided to you under the terms of the
  * GNU General Public License version 2 as published by the Free Software
@@ -55,35 +55,15 @@ struct cs_itm_state {
 
 static struct cs_itm_state itm_state = { 0 };
 
-static struct kbase_debug_coresight_csf_address_range dwt_itm_scs_range[] = {
-	{ CS_SCS_BASE_ADDR, CS_SCS_BASE_ADDR + CORESIGHT_DEVTYPE }
-};
-
 static struct kbase_debug_coresight_csf_address_range dwt_itm_range[] = {
+	{ CS_SCS_BASE_ADDR, CS_SCS_BASE_ADDR + CORESIGHT_DEVTYPE },
 	{ CS_ITM_BASE_ADDR, CS_ITM_BASE_ADDR + CORESIGHT_DEVTYPE },
 	{ CS_DWT_BASE_ADDR, CS_DWT_BASE_ADDR + CORESIGHT_DEVTYPE }
 };
 
-/* For ITM source, pre enable and post disable sequences are
- * defined to manipulate DEMCR.TRECNA. Clearing of this register has
- * to be done as the last step of coresight diasbling procedure and
- * only if there are no more configurations to disable. Otherwise,
- * if cleared earlier, TMC state machine gets stuck during Flush
- * procedure as clearing DEMCR.TRCENA stops ITM/ETM clocks. As a result,
- * the AFREADY signal from ITM is not received, Flush procedure never
- * ends and TMC will stay in STOPPING state.
- */
-static struct kbase_debug_coresight_csf_op dwt_itm_pre_enable_ops[] = {
+static struct kbase_debug_coresight_csf_op dwt_itm_enable_ops[] = {
 	// enable ITM/DWT functionality via DEMCR register
 	WRITE_IMM_OP(CS_SCS_BASE_ADDR + SCS_DEMCR, 0x01000000),
-};
-
-static struct kbase_debug_coresight_csf_op dwt_itm_post_disable_ops[] = {
-	// disable ITM/DWT functionality via DEMCR register
-	WRITE_IMM_OP(CS_SCS_BASE_ADDR + SCS_DEMCR, 0x00000000),
-};
-
-static struct kbase_debug_coresight_csf_op dwt_itm_enable_ops[] = {
 	// Unlock DWT configuration
 	WRITE_IMM_OP(CS_DWT_BASE_ADDR + CORESIGHT_LAR, CS_MALI_UNLOCK_COMPONENT),
 	// prep DWT counter to immediately send sync packet ((1 << 24) - 1)
@@ -105,6 +85,8 @@ static struct kbase_debug_coresight_csf_op dwt_itm_enable_ops[] = {
 };
 
 static struct kbase_debug_coresight_csf_op dwt_itm_disable_ops[] = {
+	// Disable ITM/DWT functionality via DEMCR register
+	WRITE_IMM_OP(CS_SCS_BASE_ADDR + SCS_DEMCR, 0x00000000),
 	// Unlock ITM configuration
 	WRITE_IMM_OP(CS_ITM_BASE_ADDR + CORESIGHT_LAR, CS_MALI_UNLOCK_COMPONENT),
 	// Check ITM is disabled
@@ -213,27 +195,14 @@ int coresight_mali_sources_init_drvdata(struct coresight_mali_source_drvdata *dr
 	drvdata->type_name = type_name;
 #endif
 
-	drvdata->base.kbase_pre_post_all_client = kbase_debug_coresight_csf_register(
-		drvdata->base.gpu_dev, dwt_itm_scs_range, NELEMS(dwt_itm_scs_range));
-	if (drvdata->base.kbase_pre_post_all_client == NULL) {
-		dev_err(drvdata->base.dev, "Registration with access to SCS failed unexpectedly\n");
-		return -EINVAL;
-	}
-
 	drvdata->base.kbase_client = kbase_debug_coresight_csf_register(
 		drvdata->base.gpu_dev, dwt_itm_range, NELEMS(dwt_itm_range));
 	if (drvdata->base.kbase_client == NULL) {
 		dev_err(drvdata->base.dev, "Registration with full range failed unexpectedly\n");
-		goto kbase_pre_post_all_client_unregister;
+		return -EINVAL;
 	}
 
 	drvdata->trcid = CS_MALI_TRACE_ID;
-
-	drvdata->base.pre_enable_seq.ops = dwt_itm_pre_enable_ops;
-	drvdata->base.pre_enable_seq.nr_ops = NELEMS(dwt_itm_pre_enable_ops);
-
-	drvdata->base.post_disable_seq.ops = dwt_itm_post_disable_ops;
-	drvdata->base.post_disable_seq.nr_ops = NELEMS(dwt_itm_post_disable_ops);
 
 	drvdata->base.enable_seq.ops = dwt_itm_enable_ops;
 	drvdata->base.enable_seq.nr_ops = NELEMS(dwt_itm_enable_ops);
@@ -243,33 +212,15 @@ int coresight_mali_sources_init_drvdata(struct coresight_mali_source_drvdata *dr
 
 	set_default_regs();
 
-	drvdata->base.pre_post_all_config = kbase_debug_coresight_csf_config_create(
-		drvdata->base.kbase_pre_post_all_client, &drvdata->base.pre_enable_seq,
-		&drvdata->base.post_disable_seq, true);
-	if (!drvdata->base.pre_post_all_config) {
-		dev_err(drvdata->base.dev, "pre_post_all_config create failed unexpectedly\n");
-		goto kbase_client_unregister;
-	}
-
-	drvdata->base.config = kbase_debug_coresight_csf_config_create(drvdata->base.kbase_client,
-								       &drvdata->base.enable_seq,
-								       &drvdata->base.disable_seq,
-								       false);
+	drvdata->base.config = kbase_debug_coresight_csf_config_create(
+		drvdata->base.kbase_client, &drvdata->base.enable_seq, &drvdata->base.disable_seq);
 	if (!drvdata->base.config) {
 		dev_err(drvdata->base.dev, "config create failed unexpectedly\n");
-		goto kbase_pre_post_all_config_unregister;
+		kbase_debug_coresight_csf_unregister(drvdata->base.kbase_client);
+		return -EINVAL;
 	}
 
 	return 0;
-
-kbase_pre_post_all_config_unregister:
-	kbase_debug_coresight_csf_config_free(drvdata->base.pre_post_all_config);
-kbase_client_unregister:
-	kbase_debug_coresight_csf_unregister(drvdata->base.kbase_client);
-kbase_pre_post_all_client_unregister:
-	kbase_debug_coresight_csf_unregister(drvdata->base.kbase_pre_post_all_client);
-
-	return -EINVAL;
 }
 
 void coresight_mali_sources_deinit_drvdata(struct coresight_mali_source_drvdata *drvdata)
@@ -277,14 +228,8 @@ void coresight_mali_sources_deinit_drvdata(struct coresight_mali_source_drvdata 
 	if (drvdata->base.config != NULL)
 		kbase_debug_coresight_csf_config_free(drvdata->base.config);
 
-	if (drvdata->base.pre_post_all_config != NULL)
-		kbase_debug_coresight_csf_config_free(drvdata->base.pre_post_all_config);
-
 	if (drvdata->base.kbase_client != NULL)
 		kbase_debug_coresight_csf_unregister(drvdata->base.kbase_client);
-
-	if (drvdata->base.kbase_pre_post_all_client != NULL)
-		kbase_debug_coresight_csf_unregister(drvdata->base.kbase_pre_post_all_client);
 }
 
 static const struct of_device_id mali_source_ids[] = { { .compatible =

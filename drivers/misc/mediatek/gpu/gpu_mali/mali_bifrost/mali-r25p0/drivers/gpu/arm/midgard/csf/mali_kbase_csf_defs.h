@@ -30,7 +30,6 @@
 #include "mali_kbase_csf_firmware.h"
 #include "mali_kbase_csf_event.h"
 #include <uapi/gpu/arm/midgard/csf/mali_kbase_csf_errors_dumpfault.h>
-#include "mali_kbase_csf_fw_io.h"
 
 #include <linux/version_compat_defs.h>
 
@@ -938,11 +937,13 @@ struct kbase_csf_reset_gpu {
  *                             of CSG slots.
  * @resident_group:   pointer to the queue group that is resident on the CSG slot.
  * @state:            state of the slot as per enum @kbase_csf_csg_slot_state.
+ * @trigger_jiffies:  value of jiffies when change in slot state is recorded.
  * @priority:         dynamic priority assigned to CSG slot.
  */
 struct kbase_csf_csg_slot {
 	struct kbase_queue_group *resident_group;
 	atomic_t state;
+	unsigned long trigger_jiffies;
 	u8 priority;
 };
 
@@ -1149,7 +1150,7 @@ struct kbase_csf_scheduler {
 	struct mutex lock;
 	spinlock_t interrupt_lock;
 	enum kbase_csf_scheduler_state state;
-	DECLARE_BITMAP(doorbell_inuse_bitmap, CSF_NUM_DOORBELL_MAX);
+	DECLARE_BITMAP(doorbell_inuse_bitmap, CSF_NUM_DOORBELL);
 	DECLARE_BITMAP(csg_inuse_bitmap, MAX_SUPPORTED_CSGS);
 	struct kbase_csf_csg_slot *csg_slots;
 	struct list_head runnable_kctxs;
@@ -1661,7 +1662,8 @@ struct kbase_csf_user_reg {
  * @glb_init_request_pending: Flag to indicate that Global requests have been
  *                            sent to the FW after MCU was re-enabled and their
  *                            acknowledgement is pending.
- * @glb_fatal_work:         Work item for handling the firmware GLB FATAL event.
+ * @fw_error_work:          Work item for handling the firmware internal error
+ *                          fatal event.
  * @ipa_control:            IPA Control component manager.
  * @mcu_core_pwroff_dur_ns: Sysfs attribute for the glb_pwroff timeout input
  *                          in unit of nanoseconds. The firmware does not use
@@ -1706,20 +1708,8 @@ struct kbase_csf_user_reg {
  *                          workarounds configuration.
  * @mmu_sync_sem:           RW Semaphore to defer MMU operations till the P.Mode entrance
  *                          or DCS request has been completed.
- * @pmode_sync_sem:         RW Semaphore to prevent MMU operations during P.Mode entrance.
- * @page_fault_cnt_ptr_address: GPU VA of the location in FW data memory, extracted from the
- *                              FW image header, that will store the GPU VA of FW visible
- *                              memory location where the @page_fault_cnt value will be written to.
- * @page_fault_cnt_ptr:         CPU VA of the FW visible memory location where the @page_fault_cnt
- *                              value will be written to.
- * @page_fault_cnt:             Counter that is incremented on every GPU page fault, just before the
- *                              MMU is unblocked to retry the memory transaction that caused the GPU
- *                              page fault. The access to counter is serialized appropriately.
- * @mcu_halted:             Flag to inform MCU FSM that the MCU has already halted.
- * @fw_io:                  Firmware I/O interface.
  * @compute_progress_timeout_cc: Value of GPU cycle count register when progress
  *                               timer timeout is reported for the compute iterator.
- * @num_doorbells: Number of doorbells supported by the GPU.
  */
 struct kbase_csf_device {
 	struct kbase_mmu_table mcu_mmu;
@@ -1748,7 +1738,7 @@ struct kbase_csf_device {
 	bool firmware_hctl_core_pwr;
 	struct work_struct firmware_reload_work;
 	bool glb_init_request_pending;
-	struct work_struct glb_fatal_work;
+	struct work_struct fw_error_work;
 	struct kbase_ipa_control ipa_control;
 	u64 mcu_core_pwroff_dur_ns;
 	u32 mcu_core_pwroff_dur_count;
@@ -1777,14 +1767,7 @@ struct kbase_csf_device {
 	spinlock_t pending_gpuq_kick_queues_lock;
 	u32 *quirks_ext;
 	struct rw_semaphore mmu_sync_sem;
-	struct rw_semaphore pmode_sync_sem;
-	u32 page_fault_cnt_ptr_address;
-	u32 *page_fault_cnt_ptr;
-	u32 page_fault_cnt;
-	bool mcu_halted;
-	struct kbase_csf_fw_io fw_io;
 	u64 compute_progress_timeout_cc;
-	u32 num_doorbells;
 };
 
 /**

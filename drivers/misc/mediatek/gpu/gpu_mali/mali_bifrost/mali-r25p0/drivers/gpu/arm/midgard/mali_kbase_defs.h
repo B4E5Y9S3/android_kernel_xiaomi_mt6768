@@ -28,8 +28,8 @@
 #define _KBASE_DEFS_H_
 
 #include <mali_kbase_config.h>
-#include <mali_kbase_hwconfig_features.h>
-#include <mali_kbase_hwconfig_issues.h>
+#include <mali_base_hwconfig_features.h>
+#include <mali_base_hwconfig_issues.h>
 #include <mali_kbase_mem_lowlevel.h>
 #include <mmu/mali_kbase_mmu_hw.h>
 #include <backend/gpu/mali_kbase_instr_defs.h>
@@ -52,11 +52,17 @@
 #include <linux/version_compat_defs.h>
 
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
+#include <linux/debugfs.h>
+#endif /* CONFIG_DEBUG_FS */
+
 #ifdef CONFIG_MALI_DEVFREQ
 #include <linux/devfreq.h>
 #endif /* CONFIG_MALI_DEVFREQ */
 
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
 #include <arbiter/mali_kbase_arbiter_defs.h>
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 
 #include <linux/memory_group_manager.h>
 
@@ -67,7 +73,6 @@
 #include <linux/file.h>
 #include <linux/sizes.h>
 #include <linux/clk.h>
-#include <linux/debugfs.h>
 #include <linux/regulator/consumer.h>
 
 /** Number of milliseconds before we time out on a GPU soft/hard reset */
@@ -482,7 +487,9 @@ struct kbase_pm_device_data {
 #if MALI_USE_CSF
 	bool runtime_active;
 #endif
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
 	atomic_t gpu_lost;
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 	wait_queue_head_t zero_active_count_wait;
 	wait_queue_head_t resume_wait;
 
@@ -498,8 +505,10 @@ struct kbase_pm_device_data {
 	void (*callback_power_runtime_term)(struct kbase_device *kbdev);
 	u32 dvfs_period;
 	struct kbase_pm_backend_data backend;
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
 	struct kbase_arbiter_vm_state *arb_vm_state;
 	atomic_t gpu_users_waiting;
+#endif /* CONFIG_MALI_ARBITER_SUPPORT */
 	struct kbase_clk_rate_trace_manager clk_rtm;
 };
 
@@ -654,16 +663,16 @@ struct kbase_mmu_mode const *kbase_mmu_mode_get_aarch64(void);
 
 #if defined(MTK_GPU_BM_2)
 struct job_status_qos {
-        phys_addr_t phyaddr;
-        size_t size;
+	phys_addr_t phyaddr;
+	size_t size;
 };
 
 struct v1_data {
-        unsigned int version;
-        unsigned int ctx;
-        unsigned int frame;
-        unsigned int job;
-        unsigned int freq;
+	unsigned int version;
+	unsigned int ctx;
+	unsigned int frame;
+	unsigned int job;
+	unsigned int freq;
 };
 #endif
 
@@ -956,7 +965,7 @@ struct kbase_mem_migrate {
  * @ipa.last_sample_time:  Records the time when counters, used for dynamic
  *                         energy estimation, were last sampled.
  * @previous_frequency:    Previous frequency of GPU clock used for
- *                         KBASE_HW_ISSUE_GPU2017_1336 workaround, This clock is
+ *                         BASE_HW_ISSUE_GPU2017_1336 workaround, This clock is
  *                         restored when L2 is powered on.
  * @job_fault_debug:       Flag to control the dumping of debug data for job faults,
  *                         set when the 'job_fault' debugfs file is opened.
@@ -1149,8 +1158,8 @@ struct kbase_device {
 
 	struct kbase_gpu_props gpu_props;
 
-	unsigned long hw_issues_mask[(KBASE_HW_ISSUE_END + BITS_PER_LONG - 1) / BITS_PER_LONG];
-	unsigned long hw_features_mask[(KBASE_HW_FEATURE_END + BITS_PER_LONG - 1) / BITS_PER_LONG];
+	unsigned long hw_issues_mask[(BASE_HW_ISSUE_END + BITS_PER_LONG - 1) / BITS_PER_LONG];
+	unsigned long hw_features_mask[(BASE_HW_FEATURE_END + BITS_PER_LONG - 1) / BITS_PER_LONG];
 
 	struct {
 		atomic_t count;
@@ -1165,12 +1174,6 @@ struct kbase_device {
 	 *                         restore to L2_CONFIG upon GPU reset.
 	 */
 	u8 pbha_propagate_bits;
-
-	/**
-	 * @mma_wa_id: The PBHA ID to use for the PBHA OVERRIDE based workaround for MMA violation.
-	 *
-	 */
-	u32 mma_wa_id;
 
 #if MALI_USE_CSF
 	struct kbase_hwcnt_backend_csf_if hwcnt_backend_csf_if_fw;
@@ -1258,6 +1261,7 @@ struct kbase_device {
 	atomic_t job_fault_debug;
 #endif /* !MALI_USE_CSF */
 
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 	struct dentry *mali_debugfs_directory;
 	struct dentry *debugfs_ctx_directory;
 	struct dentry *debugfs_instr_directory;
@@ -1279,6 +1283,7 @@ struct kbase_device {
 		u32 reg_offset;
 	} regs_dump_debugfs_data;
 #endif /* !MALI_CUSTOMER_RELEASE */
+#endif /* CONFIG_DEBUG_FS */
 
 	atomic_t ctx_num;
 
@@ -1369,12 +1374,15 @@ struct kbase_device {
 	} dummy_job_wa;
 	bool dummy_job_wa_loaded;
 
+#ifdef CONFIG_MALI_ARBITER_SUPPORT
 	struct kbase_arbiter_device arb;
+#endif
 
 #if defined(MTK_GPU_BM_2)
-        struct job_status_qos job_status_addr;
-        struct v1_data* v1;
+	struct job_status_qos job_status_addr;
+	struct v1_data* v1;
 #endif
+
 	/* Priority Control Manager device */
 	struct priority_control_manager_device *pcm_dev;
 
@@ -1400,7 +1408,6 @@ struct kbase_device {
 #endif
 
 	struct notifier_block pcm_prioritized_process_nb;
-
 };
 
 /**
@@ -2136,18 +2143,6 @@ static inline u64 kbase_get_lock_region_min_size_log2(struct kbase_gpu_props con
 		return 12; /* 4 kB */
 
 	return 15; /* 32 kB */
-}
-
-/**
- * kbase_has_arbiter - Check whether GPU has an arbiter.
- *
- * @kbdev: KBase device.
- *
- * Return: True if there is an arbiter, False otherwise.
- */
-static inline bool kbase_has_arbiter(struct kbase_device *kbdev)
-{
-	return (bool)kbdev->arb.arb_if;
 }
 
 /* Conversion helpers for setting up high resolution timers */

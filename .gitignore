@@ -121,5 +121,9 @@ all.config
 # Kdevelop4
 *.kdev4
 
+#susfs4ksu
+*.rej
+*.orig
+
 # fetched Android config fragments
 kernel/configs/android-*.cfg

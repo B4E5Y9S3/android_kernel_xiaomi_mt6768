@@ -23,27 +23,23 @@
 
 static int get_vb_volt(int vcore_opp)
 {
-	int ret = 0;
 	int ptpod64 = ((get_devinfo_with_index(64) >> 9) & 0x3);
 
 	pr_info("%s: ptpod64: 0x%x\n", __func__, ptpod64);
-	switch (vcore_opp) {
-	case VCORE_OPP_0:
-	case VCORE_OPP_1:
-	case VCORE_OPP_3:
-		break;
-	case VCORE_OPP_2:
-		if (ptpod64 != 0)
-			ret = ptpod64 - 1;
-		break;
-	default:
-		break;
+	if (vcore_opp == VCORE_OPP_2 && ptpod64 != 0) {
+		return (ptpod64 - 1) * 25000;
+	} else {
+		return 0;
 	}
-	return ret * 25000;
 }
 
 static int is_aging_test(void)
 {
+#if defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) || \
+	defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) || \
+	defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
+	return 0;
+#else
 	int ret = 0;
 
 #if defined(CONFIG_ARM64) && \
@@ -60,6 +56,7 @@ static int is_aging_test(void)
 #endif
 
 	return ret;
+#endif
 }
 
 
@@ -72,9 +69,13 @@ void dvfsrc_opp_level_mapping(void)
 	int dvfs_v_mode = 0;
 	int is_vcore_aging = is_aging_test();
 
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) || \
+	!defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) || \
+	!defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	if (!strncmp(CONFIG_ARCH_MTK_PROJECT,
 				"k68v1_64_bsp_ctig", 17))
 		is_vcore_ct = is_mini_sqc = 1;
+#endif
 
 	pr_info("flavor check: %s, is_vcore_ct: %d, is_mini_sqc: %d\n",
 			CONFIG_ARCH_MTK_PROJECT,

@@ -110,11 +110,8 @@ static int spm_dram_golden_setting_cmp(bool en)
 		return r;
 
 	switch (spm_get_spmfw_idx()) {
-	case SPMFW_LP4_2CH_3200:
-		ddrphy_setting = ddrphy_setting_lp4_2ch;
-		ddrphy_num = ARRAY_SIZE(ddrphy_setting_lp4_2ch);
-		break;
 	case SPMFW_LP4X_2CH_3600:
+	case SPMFW_LP4_2CH_3200:
 		ddrphy_setting = ddrphy_setting_lp4_2ch;
 		ddrphy_num = ARRAY_SIZE(ddrphy_setting_lp4_2ch);
 		break;

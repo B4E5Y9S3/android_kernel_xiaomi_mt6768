@@ -720,20 +720,30 @@ void kbase_mem_migrate_init(struct kbase_device *kbdev)
 {
 	struct kbase_mem_migrate *mem_migrate = &kbdev->mem_migrate;
 
-	/* Page migration support compiled in, either explicitly or
+	/* Page migration should only be enabled if compaction is
+	 * enabled in the kernel otherwise pages cannot be marked as
+	 * movable.
+	 *
+	 * Page migration support compiled in, either explicitly or
 	 * by default, so the default behaviour is to follow the choice
 	 * of large pages if not selected at insmod. Check insmod parameter
 	 * integer for a negative value to see if insmod parameter was
 	 * passed in at all (it will override the default negative value).
 	 */
-	if (kbase_page_migration_enabled < 0) {
-		if (kbase_is_large_pages_enabled())
-			static_branch_inc(&page_migration_static_key);
-	} else {
-		dev_info(kbdev->dev, "Page migration support explicitly %s at insmod.",
-			 kbase_page_migration_enabled ? "enabled" : "disabled");
-		if (kbase_page_migration_enabled)
-			static_branch_inc(&page_migration_static_key);
+	if (IS_ENABLED(CONFIG_COMPACTION)) {
+		if (kbase_page_migration_enabled < 0) {
+			if (kbase_is_large_pages_enabled())
+				static_branch_inc(&page_migration_static_key);
+		} else {
+			dev_info(kbdev->dev, "Page migration support explicitly %s at insmod.",
+				 kbase_page_migration_enabled ? "enabled" : "disabled");
+			if (kbase_page_migration_enabled)
+				static_branch_inc(&page_migration_static_key);
+		}
+	} else if (kbase_page_migration_enabled) {
+		dev_warn(
+			kbdev->dev,
+			"No CONFIG_COMPACTION. 'page migration support enable' ignored.");
 	}
 
 	spin_lock_init(&mem_migrate->free_pages_lock);

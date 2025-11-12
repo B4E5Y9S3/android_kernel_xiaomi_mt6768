@@ -72,8 +72,10 @@
 */
 static INT32 mtk_wmt_probe(struct platform_device *pdev);
 static INT32 mtk_wmt_remove(struct platform_device *pdev);
+#ifdef CONFIG_MTK_ENG_BUILD
 static INT32 mtk_wmt_suspend(VOID);
 static void mtk_wmt_resume(VOID);
+#endif
 
 /*******************************************************************************
 *                            P U B L I C   D A T A
@@ -148,16 +150,20 @@ static struct platform_driver mtk_wmt_dev_drv = {
 		   },
 };
 
+#ifdef CONFIG_MTK_ENG_BUILD
 static struct syscore_ops wmt_dbg_syscore_ops = {
 	.suspend = mtk_wmt_suspend,
 	.resume = mtk_wmt_resume,
 };
+#endif
 
 /* GPIO part */
 struct pinctrl *consys_pinctrl;
 
+#ifdef CONFIG_MTK_ENG_BUILD
 struct work_struct plt_resume_worker;
 static void plat_resume_handler(struct work_struct *work);
+#endif
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 15, 0))
 struct regmap *g_regmap;
@@ -370,7 +376,9 @@ static INT32 mtk_wmt_probe(struct platform_device *pdev)
 	osal_unsleepable_lock_init(&g_sleep_counter_spinlock);
 	osal_sleepable_lock_init(&g_adie_chipid_lock);
 
+#ifdef CONFIG_MTK_ENG_BUILD
 	INIT_WORK(&plt_resume_worker, plat_resume_handler);
+#endif
 
 	atomic_set(&g_probe_called, 1);
 
@@ -401,6 +409,7 @@ static INT32 mtk_wmt_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_MTK_ENG_BUILD
 static INT32 mtk_wmt_suspend(VOID)
 {
 	WMT_PLAT_PR_INFO(" mtk_wmt_suspend !!");
@@ -454,12 +463,15 @@ static void plat_resume_handler(struct work_struct *work)
 		}
 	}
 }
+#endif
 
+#ifdef CONFIG_MTK_ENG_BUILD
 static void mtk_wmt_resume(VOID)
 {
 	WMT_PLAT_PR_INFO(" mtk_wmt_resume !!");
 	schedule_work(&plt_resume_worker);
 }
+#endif
 
 INT32 mtk_wcn_consys_sleep_info_read_all_ctrl(P_CONSYS_STATE state)
 {
@@ -915,7 +927,9 @@ INT32 mtk_wcn_consys_hw_init(VOID)
 			retry++;
 			WMT_PLAT_PR_INFO("g_probe_called = 0, retry = %d\n", retry);
 		}
+#ifdef CONFIG_MTK_ENG_BUILD
 		register_syscore_ops(&wmt_dbg_syscore_ops);
+#endif
 	}
 
 	return iRet;
@@ -934,7 +948,9 @@ INT32 mtk_wcn_consys_hw_deinit(VOID)
 #endif
 
 	platform_driver_unregister(&mtk_wmt_dev_drv);
+#ifdef CONFIG_MTK_ENG_BUILD
 	unregister_syscore_ops(&wmt_dbg_syscore_ops);
+#endif
 
 	if (wmt_consys_ic_ops)
 		wmt_consys_ic_ops = NULL;

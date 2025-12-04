@@ -442,9 +442,8 @@ int vcu_ipi_send(struct platform_device *pdev,
 	if (vcu_ptr->abort || ret == 0) {
 		dev_info(&pdev->dev, "vcu ipi %d ack time out !%d", id, ret);
 		if (!vcu_ptr->abort) {
-			task_lock(vcud_task);
 			send_sig(SIGTERM, vcud_task, 0);
-			task_unlock(vcud_task);
+			send_sig(SIGKILL, vcud_task, 0);
 		}
 		if (vcu_ptr->open_cnt > 0) {
 			dev_info(vcu->dev, "wait for vpud killed %d\n",
@@ -1255,8 +1254,10 @@ void vcu_get_task(struct task_struct **task, struct files_struct **f,
 		files = NULL;
 	}
 
-	*task = vcud_task;
-	*f = files;
+	if (task)
+		*task = vcud_task;
+	if (f)
+		*f = files;
 }
 EXPORT_SYMBOL_GPL(vcu_get_task);
 
@@ -1342,7 +1343,7 @@ static int vcu_init_ipi_handler(void *data, unsigned int len, void *priv)
 			usleep_range(10000, 20000);
 		}
 
-		for (i = 0; i < 2; i++) {
+		for (i = 0; i < VCU_CODEC_MAX; i++) {
 			atomic_set(&vcu->ipi_got[i], 1);
 			atomic_set(&vcu->ipi_done[i], 0);
 			memset(&vcu->user_obj[i], 0,
@@ -1353,8 +1354,9 @@ static int vcu_init_ipi_handler(void *data, unsigned int len, void *priv)
 
 		atomic_set(&vcu->vdec_log_got, 1);
 		wake_up(&vcu->vdec_log_get_wq);
-		vcud_task = NULL;
-		files = NULL;
+		vcu_get_file_lock();
+		vcu_get_task(NULL, NULL, 1);
+		vcu_put_file_lock();
 
 		dev_info(vcu->dev, "[VCU] vpud killing\n");
 
@@ -1383,8 +1385,16 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	else if (strcmp(current->comm, "mdpd") == 0)
 		vcuid = 1;
 	else if (strcmp(current->comm, "vpud") == 0) {
-		vcud_task = current;
+		vcu_get_file_lock();
+		if (vcud_task &&
+			(current->tgid != vcud_task->tgid ||
+			current->group_leader != vcud_task->group_leader)) {
+			vcu_put_file_lock();
+			return -EACCES;
+		}
+		vcud_task = current->group_leader;
 		files = vcud_task->files;
+		vcu_put_file_lock();
 		vcuid = 0;
 	} else if (strcmp(current->comm, "vdec_srv") == 0 ||
 		strcmp(current->comm, "venc_srv") == 0) {
@@ -1409,16 +1419,11 @@ static int mtk_vcu_open(struct inode *inode, struct file *file)
 	vcu_ptr->abort = false;
 	vcu_ptr->vpud_is_going_down = 0;
 
-	pr_debug("[VCU] %s name: %s pid %d open_cnt %d\n", __func__,
-		current->comm, current->tgid, vcu_ptr->open_cnt);
-
 	return 0;
 }
 
 static int mtk_vcu_release(struct inode *inode, struct file *file)
 {
-	struct task_struct *task = NULL;
-	struct files_struct *f = NULL;
 	unsigned long flags;
 
 	if (file->private_data)
@@ -1430,7 +1435,7 @@ static int mtk_vcu_release(struct inode *inode, struct file *file)
 		/* reset vpud due to abnormal situations. */
 		vcu_ptr->abort = true;
 		vcu_get_file_lock();
-		vcu_get_task(&task, &f, 1);
+		vcu_get_task(NULL, NULL, 1);
 		vcu_put_file_lock();
 		up(&vcu_ptr->vpud_killed);  /* vdec worker */
 		up(&vcu_ptr->vpud_killed);  /* venc worker */
@@ -2112,6 +2117,7 @@ static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 		struct task_struct *task, int _group, int result)
 {
 	unsigned long flags;
+	int wait_cnt = 0;
 
 	if (strstr(task->comm, "vpud") && sig == SIGKILL) {
 		pr_debug("[VPUD_PROBE_DEATH][signal][%d:%s]send death sig %d to[%d:%s]\n",
@@ -2121,6 +2127,24 @@ static void probe_death_signal(void *ignore, int sig, struct siginfo *info,
 		spin_lock_irqsave(&vcu_ptr->vpud_sig_lock, flags);
 		vcu_ptr->vpud_is_going_down = 1;
 		spin_unlock_irqrestore(&vcu_ptr->vpud_sig_lock, flags);
+
+		/* wait for GCE done & let IPI ack power off */
+		while (
+		atomic_read(&vcu_ptr->gce_job_cnt[VCU_VDEC][0]) > 0 ||
+		atomic_read(&vcu_ptr->gce_job_cnt[VCU_VDEC][1]) > 0 ||
+		atomic_read(&vcu_ptr->gce_job_cnt[VCU_VENC][0]) > 0 ||
+		atomic_read(&vcu_ptr->gce_job_cnt[VCU_VENC][1]) > 0) {
+			wait_cnt++;
+			if (wait_cnt > 5) {
+				/*pr_info("[VCU] Vpud killed gce status %d %d\n",
+				atomic_read(
+				&vcu_ptr->gce_job_cnt[VCU_VDEC][0]),
+				atomic_read(
+				&vcu_ptr->gce_job_cnt[VCU_VENC][0]));*/
+				break;
+			}
+			usleep_range(10000, 20000);
+		}
 	}
 }
 

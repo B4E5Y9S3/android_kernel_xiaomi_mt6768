@@ -16,7 +16,7 @@
 
 
 /* scp platform configs*/
-#define SCP_BOOT_TIME_OUT_MONITOR	(1)
+#define SCP_BOOT_TIME_OUT_MONITOR	(0)
 #ifdef MTK_TINYSYS_SCP_LOGGER_SUPPORT
 #define SCP_LOGGER_ENABLE		(1)
 #else

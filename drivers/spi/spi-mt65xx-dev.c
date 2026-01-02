@@ -246,7 +246,6 @@ static int secspi_session_close(void)
 
 void secspi_enable_clk(struct spi_device *spidev)
 {
-	int ret;
 	struct spi_master *master;
 	struct mtk_spi *ms;
 
@@ -255,7 +254,7 @@ void secspi_enable_clk(struct spi_device *spidev)
 	/*
 	 * prepare the clock source
 	 */
-	ret = clk_prepare_enable(ms->spi_clk);
+	clk_prepare_enable(ms->spi_clk);
 }
 
 int secspi_execute(u32 cmd, tciSpiMessage_t *param)
@@ -337,12 +336,11 @@ EXPORT_SYMBOL(mt_spi_disable_master_clk);
 
 void mt_spi_enable_master_clk(struct spi_device *spidev)
 {
-	int ret;
 	struct mtk_spi *ms;
 
 	ms = spi_master_get_devdata(spidev->master);
 
-	ret = clk_prepare_enable(ms->spi_clk);
+	clk_prepare_enable(ms->spi_clk);
 }
 EXPORT_SYMBOL(mt_spi_enable_master_clk);
 

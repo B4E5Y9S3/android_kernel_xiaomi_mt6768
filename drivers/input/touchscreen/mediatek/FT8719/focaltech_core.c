@@ -1320,7 +1320,8 @@ static int fts_ts_probe(struct spi_device *spi) {
 
   FTS_INFO("Touch Screen(SPI BUS) driver prboe...");
 
-  spi->max_speed_hz = 6000000;
+  spi->max_speed_hz = 7000000;
+
   FTS_INFO("[%s]: fts_spi,  spi speed = %d\n", __func__, spi->max_speed_hz);
 
   spi->mode = SPI_MODE_1;

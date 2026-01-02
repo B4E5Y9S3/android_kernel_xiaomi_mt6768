@@ -144,6 +144,7 @@ static int pid;
 
 static u8 g_vendor_id;
 
+#ifdef CONFIG_MTK_ENG_BUILD
 static ssize_t gf_debug_show(struct device *dev,
 			struct device_attribute *attr, char *buf);
 
@@ -183,6 +184,7 @@ static const struct attribute_group performance_attr_group = {
 	.attrs = performance_attrs,
 	.name = "authen_fd"
  };
+ #endif
 /* end modify for unlock speed */
 
 #ifndef CONFIG_SPI_MT65XX
@@ -1025,7 +1027,9 @@ static long gf_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		mutex_unlock(&gf_dev->release_lock);
 
 		cdev_del(&gf_dev->cdev);
+#ifdef CONFIG_MTK_ENG_BUILD
 		sysfs_remove_group(&gf_dev->spi->dev.kobj, &gf_debug_attr_group);
+#endif
 		device_destroy(gf_dev->class, gf_dev->devno);
 		list_del(&gf_dev->device_entry);
 		unregister_chrdev_region(gf_dev->devno, 1);
@@ -1216,6 +1220,7 @@ static int freq_hold(int sec)
 	return 0;
 }
 
+#ifdef CONFIG_MTK_ENG_BUILD
 static ssize_t performance_store(struct device *dev,
 				 struct device_attribute *attr, const char *buf,
 				 size_t count)
@@ -1321,6 +1326,7 @@ static ssize_t gf_debug_store(struct device *dev,
 
 	return count;
 }
+#endif
 
 /* -------------------------------------------------------------------- */
 /* device function								  */
@@ -2095,6 +2101,7 @@ static int gf_probe(struct spi_device *spi)
 	/* check firmware Integrity */
 	//gf_debug(INFO_LOG, "%s, Sensor type : %s.\n", __func__, CONFIG_GOODIX_SENSOR_TYPE);
 
+#ifdef CONFIG_MTK_ENG_BUILD
 	/* begin modify for unlock speed */
 	/* init freq ppm data */
 	status = sysfs_create_group(&spi->dev.kobj, &performance_attr_group);
@@ -2108,6 +2115,7 @@ static int gf_probe(struct spi_device *spi)
 			 __func__);
 	}
 	/* end modify for unlock speed */
+#endif
 
 	mdelay(1);
 	gf_spi_read_bytes(gf_dev, 0x0000, 4, rx_test);
@@ -2205,6 +2213,7 @@ static int gf_probe(struct spi_device *spi)
 		gf_debug(INFO_LOG, "%s, device create success.\n", __func__);
 	}
 
+#ifdef CONFIG_MTK_ENG_BUILD
 	/* create sysfs */
 	status = sysfs_create_group(&spi->dev.kobj, &gf_debug_attr_group);
 	if (status) {
@@ -2214,15 +2223,18 @@ static int gf_probe(struct spi_device *spi)
 	} else {
 		gf_debug(INFO_LOG, "%s, Success create sysfs file.\n", __func__);
 	}
+#endif
 
 	/* cdev init and add */
 	cdev_init(&gf_dev->cdev, &gf_fops);
 	gf_dev->cdev.owner = THIS_MODULE;
+#ifdef CONFIG_MTK_ENG_BUILD
 	status = cdev_add(&gf_dev->cdev, gf_dev->devno, 1);
 	if (status) {
 		gf_debug(ERR_LOG, "%s, Failed to add cdev.\n", __func__);
 		goto err_cdev;
 	}
+#endif
 
 	/*register device within input system.*/
 	gf_dev->input = input_allocate_device();
@@ -2294,12 +2306,16 @@ err_input_2:
 err_input:
 	cdev_del(&gf_dev->cdev);
 
+#ifdef CONFIG_MTK_ENG_BUILD
 err_cdev:
 	sysfs_remove_group(&spi->dev.kobj, &gf_debug_attr_group);
+#endif
 
+#ifdef CONFIG_MTK_ENG_BUILD
 err_sysfs:
 	device_destroy(gf_dev->class, gf_dev->devno);
 	list_del(&gf_dev->device_entry);
+#endif
 
 err_device:
 	unregister_chrdev_region(gf_dev->devno, 1);
@@ -2379,8 +2395,10 @@ static int gf_remove(struct spi_device *spi)
 
 	gf_netlink_destroy(gf_dev);
 	cdev_del(&gf_dev->cdev);
+#ifdef CONFIG_MTK_ENG_BUILD
 	sysfs_remove_group(&spi->dev.kobj, &gf_debug_attr_group);
 	sysfs_remove_group(&spi->dev.kobj, &performance_attr_group);
+#endif
 	device_destroy(gf_dev->class, gf_dev->devno);
 	list_del(&gf_dev->device_entry);
 

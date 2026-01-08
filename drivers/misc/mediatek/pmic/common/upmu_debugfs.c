@@ -252,6 +252,7 @@ static const struct file_operations pmic_dump_register_proc_fops = {
 	.read = seq_read,
 };
 
+#ifdef CONFIG_MTK_ENG_BUILD
 int __attribute__ ((weak)) pmic_irq_debug_init(struct dentry *debug_dir)
 {
 	return 0;
@@ -299,6 +300,7 @@ int pmic_debug_init(struct platform_device *dev)
 
 	return 0;
 }
+#endif
 
 MODULE_AUTHOR("Jimmy-YJ Huang");
 MODULE_DESCRIPTION("MT PMIC DEBUGFS Driver");

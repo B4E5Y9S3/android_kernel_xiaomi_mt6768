@@ -390,11 +390,13 @@ static int mtk_rtc_get_spare_register(enum rtc_spare_enum cmd)
 		if (ret < 0)
 			goto exit;
 
+#ifdef CONFIG_MTK_ENG_BUILD
 		pr_notice("%s: cmd[%d], get rg[0x%x, 0x%x , %d] = 0x%x\n",
 			      __func__, cmd,
 				  rtc_spare_reg[cmd][RTC_REG],
 			      rtc_spare_reg[cmd][RTC_MASK],
 			      rtc_spare_reg[cmd][RTC_SHIFT], tmp_val);
+#endif
 
 		return tmp_val;
 	}
@@ -410,11 +412,13 @@ static void mtk_rtc_set_spare_register(enum rtc_spare_enum cmd, u16 val)
 
 	if (cmd >= 0 && cmd < RTC_SPAR_NUM) {
 
+#ifdef CONFIG_MTK_ENG_BUILD
 		pr_notice("%s: cmd[%d], set rg[0x%x, 0x%x , %d] = 0x%x\n",
 				  __func__, cmd,
 			      rtc_spare_reg[cmd][RTC_REG],
 			      rtc_spare_reg[cmd][RTC_MASK],
 			      rtc_spare_reg[cmd][RTC_SHIFT], val);
+#endif
 
 		tmp_val = ((val & rtc_spare_reg[cmd][RTC_MASK])
 					<< rtc_spare_reg[cmd][RTC_SHIFT]);

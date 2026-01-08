@@ -48,7 +48,9 @@ extern void lbat_suspend(void);
 extern void lbat_resume(void);
 extern unsigned int lbat_read_raw(void);
 extern unsigned int lbat_read_volt(void);
+#ifdef CONFIG_MTK_ENG_BUILD
 extern void lbat_dump_reg(void);
 extern int lbat_debug_init(struct dentry *debug_dir);
+#endif
 
 #endif	/* __PMIC_LBAT_SERVICE_H__ */

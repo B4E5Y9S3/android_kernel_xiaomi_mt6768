@@ -109,12 +109,14 @@ void wake_up_gauge_coulomb(void)
 		return;
 	}
 
+#ifdef CONFIG_MTK_ENG_BUILD
 	ft_err("%s %d %d %d %d\n",
 		__func__,
 		wlock.active,
 		coulomb_thread_timeout,
 		coulomb_lock_cnt,
 		hw_coulomb_lock_cnt);
+#endif
 
 	mutex_hw_coulomb_lock();
 	gauge_set_coulomb_interrupt1_ht(300);
@@ -144,6 +146,7 @@ void gauge_coulomb_consumer_init(
 }
 void gauge_coulomb_dump_list(void)
 {
+#ifdef CONFIG_MTK_ENG_BUILD
 	struct list_head *pos;
 	struct list_head *phead = &coulomb_head_plus;
 	struct gauge_consumer *ptr;
@@ -184,6 +187,7 @@ void gauge_coulomb_dump_list(void)
 		}
 	}
 	mutex_coulomb_unlock();
+#endif
 }
 
 

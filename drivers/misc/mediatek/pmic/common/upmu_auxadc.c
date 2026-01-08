@@ -132,12 +132,15 @@ static ssize_t mtk_auxadc_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
 	ptrdiff_t cmd;
+#ifdef CONFIG_MTK_ENG_BUILD
 	int i;
 	int value;
+#endif
 
 	cmd = attr - mtk_auxadc_attrs;
 	buf[0] = '\0';
 
+#ifdef CONFIG_MTK_ENG_BUILD
 	switch (cmd) {
 	case AUXADC_DUMP:
 		snprintf(buf+strlen(buf),
@@ -172,6 +175,7 @@ static ssize_t mtk_auxadc_show(struct device *dev,
 	default:
 		break;
 	}
+#endif
 	return strlen(buf);
 }
 

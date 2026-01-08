@@ -286,6 +286,7 @@ struct pmic_adc_dbg_st {
 };
 static unsigned int adc_dbg_addr[DBG_REG_SIZE];
 
+#ifdef CONFIG_MTK_ENG_BUILD
 static void wk_auxadc_dbg_dump(void)
 {
 	unsigned char reg_log[861] = "", reg_str[21] = "";
@@ -329,6 +330,7 @@ static void wk_auxadc_dbg_dump(void)
 			dbg_stamp = 0;
 	}
 }
+#endif
 
 /* BAT_TEMP filter Maxima and minima then average */
 static int bat_temp_filter(int *arr, unsigned short size)
@@ -361,7 +363,9 @@ static int wk_bat_temp_dbg(int bat_temp_prev, int bat_temp)
 	pr_debug("BAT_TEMP_PREV:%d,BAT_TEMP:%d,VBIF28:%d\n",
 		bat_temp_prev, bat_temp, vbif28);
 	if (bat_temp < 200 || abs(bat_temp_prev - bat_temp) > 100) {
+#ifdef CONFIG_MTK_ENG_BUILD
 		wk_auxadc_dbg_dump();
+#endif
 		for (i = 0; i < 5; i++) {
 			arr_bat_temp[i] =
 				auxadc_priv_read_channel(pmic_auxadc_dev,

@@ -150,6 +150,7 @@ void exec_low_battery_callback(unsigned int thd)
 				lbcb_tb[i].lbcb(low_battery_level);
 		}
 	}
+#ifdef CONFIG_MTK_ENG_BUILD
 #if PMIC_THROTTLING_DLPT_UT
 	pr_info("[%s] prio_val=%d,low_battery=%d\n"
 			, __func__, i, low_battery_level);
@@ -157,6 +158,7 @@ void exec_low_battery_callback(unsigned int thd)
 #else
 	pr_info("[%s] prio_val=%d,low_battery=%d\n"
 			, __func__, i, low_battery_level);
+#endif
 #endif
 }
 
@@ -178,10 +180,12 @@ void low_battery_protect_init(void)
 	if (ret)
 		pr_notice("[%s] error ret=%d\n", __func__, ret);
 
+#ifdef CONFIG_MTK_ENG_BUILD
 	lbat_dump_reg();
 	pr_info("[%s] %d mV, %d mV, %d mV Done\n"
 		, __func__, POWER_INT0_VOLT
 		, POWER_INT1_VOLT, POWER_INT2_VOLT);
+#endif
 }
 
 int dlpt_check_power_off(void)
@@ -487,10 +491,13 @@ void exec_battery_percent_callback(
 	int i = 0;
 #endif
 
+#ifdef CONFIG_MTK_ENG_BUILD
 	if (g_battery_percent_stop == 1) {
 		pr_info("[%s] g_battery_percent_stop=%d\n"
 			, __func__, g_battery_percent_stop);
 	} else {
+#else
+	if (g_battery_percent_stop != 1) {
 #ifdef DISABLE_DLPT_FEATURE
 		for (i = 0; i < BPCB_NUM; i++) {
 			if (bpcb_tb[i].bpcb != NULL) {
@@ -503,14 +510,15 @@ void exec_battery_percent_callback(
 		if (bpcb_tb[BATTERY_PERCENT_PRIO_FLASHLIGHT].bpcb != NULL) {
 			bpcb_tb[BATTERY_PERCENT_PRIO_FLASHLIGHT].bpcb(
 				battery_percent_level);
-		} else
+		} /* else
 			pr_notice("[%s]BATTERY_PERCENT_PRIO_FLASHLIGHT is null\n"
 				, __func__);
 		pr_info
 			("[%s at DLPT] prio_val=%d,battery_percent_level=%d\n"
 			, __func__
 			, BATTERY_PERCENT_PRIO_FLASHLIGHT
-			, battery_percent_level);
+			, battery_percent_level); */
+#endif
 #endif
 	}
 }
@@ -544,8 +552,10 @@ int bat_percent_notify_handler(void *unused)
 		}
 		bat_percent_notify_flag = false;
 
+#ifdef CONFIG_MTK_ENG_BUILD
 		PMICLOG("bat_per_level=%d,bat_per_val=%d\n"
 			, g_battery_percent_level, bat_per_val);
+#endif
 
 		mutex_unlock(&bat_percent_notify_mutex);
 		__pm_relax(&bat_percent_notify_lock);
@@ -1447,19 +1457,19 @@ static ssize_t store_battery_percent_ut(
 	char *pvalue = NULL;
 	unsigned int val = 0;
 	/*store_battery_percent_protect_ut*/
-	pr_info("[%s]\n", __func__);
+	//pr_info("[%s]\n", __func__);
 
 	if (buf != NULL && size != 0) {
-		pr_info("[%s] buf is %s and size is %zu\n",
-			__func__, buf, size);
+		/* pr_info("[%s] buf is %s and size is %zu\n",
+			__func__, buf, size); */
 		pvalue = (char *)buf;
 		ret = kstrtou32(pvalue, 16, (unsigned int *)&val);
 		if (val <= 1) {
-			pr_info("[%s] your input is %d\n", __func__, val);
+			//pr_info("[%s] your input is %d\n", __func__, val);
 			exec_battery_percent_callback(val);
-		} else {
+		} /* else {
 			pr_info("[%s] wrong number (%d)\n", __func__, val);
-		}
+		} */
 	}
 	return size;
 }
@@ -1676,6 +1686,7 @@ void pmic_throttling_dlpt_resume(void)
 #endif
 }
 
+#ifdef CONFIG_MTK_ENG_BUILD
 void pmic_throttling_dlpt_debug_init(struct platform_device *dev,
 	struct dentry *debug_dir)
 {
@@ -1719,6 +1730,7 @@ void pmic_throttling_dlpt_debug_init(struct platform_device *dev,
 	if (ret)
 		pr_notice("[%s] error ret=%d\n", __func__, ret);
 }
+#endif
 
 static void pmic_uvlo_init(void)
 {

@@ -482,6 +482,7 @@ unsigned int lbat_read_volt(void)
 	return (raw_data * 1800 * r_ratio[0] / r_ratio[1]) >> 12;
 }
 
+#ifdef CONFIG_MTK_ENG_BUILD
 /*
  * Lbat service debug
  */
@@ -685,3 +686,4 @@ int lbat_debug_init(struct dentry *debug_dir)
 
 	return 0;
 }
+#endif

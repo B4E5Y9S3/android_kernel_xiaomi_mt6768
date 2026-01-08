@@ -215,13 +215,17 @@ static void disp_pwm_backlight_status(enum disp_pwm_id_t id,
 	}
 
 	if (is_power_on == true && high_width > 0) {
+#ifdef CONFIG_MTK_ENG_BUILD
 		PWM_NOTICE("backlight is on (%d), power:(%d), pwm id: (%d)",
 			high_width, is_power_on, index);
+#endif
 		/* Change status when backlight turns on */
 		atomic_set(&g_pwm_is_power_on[index], 1);
 	} else if (is_power_on == false) {
+#ifdef CONFIG_MTK_ENG_BUILD
 		PWM_NOTICE("backlight is off, power:(%d), pwm id: (%d)",
 			is_power_on, index);
+#endif
 		/* Save vlaue before clock off */
 		atomic_set(&g_pwm_value_before_power_off[index], high_width);
 		atomic_set(&g_pwm_is_power_on[index], 0);

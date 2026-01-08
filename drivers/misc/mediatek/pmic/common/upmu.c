@@ -608,8 +608,10 @@ static int pmic_mt_probe(struct platform_device *pdev)
 
 	PMICLOG("[PMIC] pmic_throttling_dlpt_init : done.\n");
 
+#ifdef CONFIG_MTK_ENG_BUILD
 	pmic_debug_init(pdev);
 	PMICLOG("[PMIC] pmic_debug_init : done.\n");
+#endif
 
 	pmic_ftm_init();
 

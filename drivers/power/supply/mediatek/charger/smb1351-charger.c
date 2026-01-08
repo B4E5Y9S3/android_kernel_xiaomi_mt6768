@@ -1246,16 +1246,16 @@ static void smb1351_sw_rerun_aicl_work(struct work_struct *work)
 
 	rc = smb1351_read_reg(chip, STATUS_0_REG, &aicl_result);
 	if (rc) {
-		pr_err("read aicl result rc = %d\n", rc);
+		pr_debug("read aicl result rc = %d\n", rc);
 	}
 	rc = smb1351_read_reg(chip, CHG_CURRENT_CTRL_REG, &input_current);
 	if (rc) {
-		pr_err("read input result rc = %d\n", rc);
+		pr_debug("read input result rc = %d\n", rc);
 	}
 
 	aicl_result = aicl_result & AC_INPUT_CURRENT_LIMIT_MASK;
 	input_current = input_current & AC_INPUT_CURRENT_LIMIT_MASK;
-	pr_err("compare aicl input:%02x aicl:%02x\n", input_current, aicl_result);
+	pr_debug("compare aicl input:%02x aicl:%02x\n", input_current, aicl_result);
 	if (input_current > aicl_result) {
 		smb1351_rerun_aicl(chip);
 	}

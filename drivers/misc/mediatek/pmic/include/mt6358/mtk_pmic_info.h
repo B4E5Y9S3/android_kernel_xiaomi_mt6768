@@ -41,6 +41,7 @@ extern unsigned int gPMICREGDbgLvl;
 #define PMIC_LOG_WARN    1
 #define PMIC_LOG_ERR     0
 
+#ifdef CONFIG_MTK_ENG_BUILD
 #define PMICLOG(fmt, arg...) do { \
 	if (gPMICDbgLvl >= PMIC_LOG_DBG) \
 		pr_notice(PMICTAG "%s: " fmt, __func__, ##arg); \
@@ -60,6 +61,12 @@ extern unsigned int gPMICREGDbgLvl;
 	if (gPMICREGDbgLvl >= PMIC_LOG_DBG) \
 		pr_notice(PMICTAG "%s: " fmt, __func__, ##arg); \
 } while (0)
+#else
+#define PMICLOG(fmt, arg...) ((void)0)
+#define HKLOG(fmt, arg...) ((void)0)
+#define IRQLOG(fmt, arg...) ((void)0)
+#define RGLTRLOG(fmt, arg...) ((void)0)
+#endif
 
 /* MT6358 Export API */
 extern unsigned int pmic_scp_set_vcore(unsigned int voltage);

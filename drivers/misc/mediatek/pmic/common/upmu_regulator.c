@@ -761,6 +761,7 @@ static const struct file_operations pmic_debug_proc_fops = {
 	.read = seq_read,
 };
 
+#ifdef CONFIG_MTK_ENG_BUILD
 void pmic_regulator_debug_init(struct platform_device *dev,
 			       struct dentry *debug_dir)
 {
@@ -814,6 +815,7 @@ void pmic_regulator_debug_init(struct platform_device *dev,
 	PMICLOG("proc_create pmic_debug_proc_fops\n");
 
 }
+#endif
 
 MODULE_AUTHOR("Jimmy-YJ Huang");
 MODULE_DESCRIPTION("MT PMIC REGULATOR Driver");

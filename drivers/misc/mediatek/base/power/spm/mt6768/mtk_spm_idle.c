@@ -161,9 +161,11 @@ int mtk_idle_trigger_wfi(int idle_type, unsigned int idle_flag, int cpu)
 	if (INVALID_IDLE_TYPE(idle_type))
 		return 0;
 
+#ifdef CONFIG_MTK_ENG_BUILD
 	/* Dump low power golden setting */
 	if (idle_flag & MTK_IDLE_LOG_DUMP_LP_GS)
 		mtk_idle_gs_dump(idle_type);
+#endif
 
 	pwrctrl = get_pwrctrl[idle_type];
 

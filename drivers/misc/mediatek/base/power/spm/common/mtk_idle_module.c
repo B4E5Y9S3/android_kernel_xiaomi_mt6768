@@ -314,7 +314,9 @@ int mtk_idle_enter(int idle_type,
 	__mtk_idle_footprint_start(idle_type);
 
 	/* Disable log when we profiling idle latency */
+#ifdef CONFIG_MTK_ENG_BUILD
 	if (mtk_idle_latency_profile_is_on())
+#endif
 		idle_flag |= MTK_IDLE_LOG_DISABLE;
 
 	__mtk_idle_footprint(IDLE_FP_ENTER);
@@ -417,8 +419,10 @@ RESTORE_UART:
 
 	__mtk_idle_footprint(IDLE_FP_LEAVE);
 
+#ifdef CONFIG_MTK_ENG_BUILD
 	/* output idle latency profiling result if enabled */
 	mtk_idle_latency_profile_result(&mod->clerk);
+#endif
 
 	__mtk_idle_footprint_stop();
 

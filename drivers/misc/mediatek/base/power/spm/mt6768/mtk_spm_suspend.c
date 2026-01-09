@@ -218,8 +218,6 @@ static void spm_suspend_pcm_setup_before_wfi(unsigned int ex_flag
 	} else
 		spm_suspend_pre_process(SPM_SUSPEND, pwrctrl);
 
-	spm_dump_world_clk_cntcv();
-	spm_set_sysclk_settle();
 	__spm_sync_pcm_flags(pwrctrl);
 	pwrctrl->timer_val = __spm_get_pcm_timer_val(pwrctrl);
 

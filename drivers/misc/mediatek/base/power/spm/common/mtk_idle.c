@@ -70,9 +70,14 @@ static ssize_t idle_state_read(char *ToUserBuf, size_t sz_t, void *priv)
 	sz -= i;
 	log("\n");
 
+#ifdef CONFIG_MTK_ENG_BUILD
 	log("idle_ratio_profile=%d\n", mtk_idle_get_ratio_status() ? 1 : 0);
 	log("idle_latency_profile=%d\n"
 			, mtk_idle_latency_profile_is_on() ? 1 : 0);
+#else
+	log("idle_ratio_profile=0\n");
+	log("idle_latency_profile=0\n");
+#endif
 	log("twam_handler:%s (clk:%s)\n",
 		(mtk_idle_get_twam()->running) ? "on" : "off",
 		(mtk_idle_get_twam()->speed_mode) ? "speed" : "normal");
@@ -107,8 +112,10 @@ static ssize_t idle_state_write(char *FromUserBuf, size_t sz, void *priv)
 				mtk_idle_enable_ratio_calc();
 			else
 				mtk_idle_disable_ratio_calc();
+#ifdef CONFIG_MTK_ENG_BUILD
 		} else if (!strcmp(cmd, "latency")) {
 			mtk_idle_latency_profile_enable(parm ? true : false);
+#endif
 		} else if (!strcmp(cmd, "spmtwam_clk")) {
 			mtk_idle_get_twam()->speed_mode = parm;
 		} else if (!strcmp(cmd, "spmtwam_sel")) {

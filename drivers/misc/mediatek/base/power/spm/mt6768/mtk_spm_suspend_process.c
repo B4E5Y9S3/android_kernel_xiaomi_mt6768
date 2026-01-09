@@ -61,6 +61,7 @@ unsigned int pmic_config_interface_nolock(unsigned int RegNum, unsigned int val,
 
 void spm_dump_world_clk_cntcv(void)
 {
+#ifdef CONFIG_MTK_ENG_BUILD
 	u32 wlk_cntcv_l;
 	u32 wlk_cntcv_h;
 
@@ -70,10 +71,12 @@ void spm_dump_world_clk_cntcv(void)
 
 	pr_debug("[name:spm&][SPM] wlk_cntcv_l = 0x%x, wlk_cntcv_h = 0x%x\n",
 		wlk_cntcv_l, wlk_cntcv_h);
+#endif
 }
 
 void spm_set_sysclk_settle(void)
 {
+#ifdef CONFIG_MTK_ENG_BUILD
 	u32 settle;
 
 	/* SYSCLK settle = MD SYSCLK settle but set it again for MD PDN */
@@ -86,6 +89,7 @@ void spm_set_sysclk_settle(void)
 #endif
 	pr_debug("[name:spm&][SPM] md_settle = %u, settle = %u\n",
 		SPM_SYSCLK_SETTLE, settle);
+#endif
 }
 
 #if SPM_PMIC_DEBUG

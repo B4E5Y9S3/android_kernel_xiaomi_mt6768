@@ -21,7 +21,9 @@
 
 unsigned long long idle_get_current_time_ms(void);
 
+#ifdef CONFIG_MTK_ENG_BUILD
 void mtk_idle_latency_profile_result(struct MTK_IDLE_MODEL_CLERK *clerk);
+#endif
 
 void mtk_idle_block_reason_report(struct MTK_IDLE_MODEL_CLERK const *clerk);
 

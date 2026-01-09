@@ -222,6 +222,7 @@ void mtk_idle_recent_ratio_get(
 	}
 }
 
+#ifdef CONFIG_MTK_ENG_BUILD
 static bool profile_latency_enabled;
 void mtk_idle_latency_profile_enable(bool enable)
 {
@@ -289,4 +290,4 @@ void mtk_idle_latency_profile_result(struct MTK_IDLE_MODEL_CLERK *clerk)
 
 	pr_debug("[name:spm&]Power/latency_profile %s\n", plog);
 }
-
+#endif

@@ -174,6 +174,7 @@ enum {
 	NR_PIDX
 };
 
+#ifdef CONFIG_MTK_ENG_BUILD
 void mtk_idle_latency_profile_enable(bool enable);
 bool mtk_idle_latency_profile_is_on(void);
 void mtk_idle_latency_profile(int idx);
@@ -183,6 +184,10 @@ void mtk_idle_latency_profile(int idx);
 
 #define __profile_idle_stop(idx) \
 	mtk_idle_latency_profile(2*idx+1)
+#else
+#define __profile_idle_start(idx) ((void)0)
+#define __profile_idle_stop(idx) ((void)0)
+#endif
 
 
 /********************************************************************

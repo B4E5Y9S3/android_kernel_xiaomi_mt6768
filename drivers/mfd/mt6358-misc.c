@@ -710,11 +710,12 @@ static int pmic_config_interface(unsigned int RegNum, unsigned int val,
 	ret = regmap_update_bits(rtc_misc->regmap, RegNum,
 				(MASK << SHIFT), (val << SHIFT));
 #endif
+#ifdef CONFIG_MTK_ENG_BUILD
 	if (ret) {
 		pr_notice("[%s]ret=%d Reg=0x%x val=0x%x MASK=0x%x SHIFT=%d\n",
 			__func__, ret, RegNum, val, MASK, SHIFT);
-		return ret;
 	}
+#endif
 
 	return ret;
 }

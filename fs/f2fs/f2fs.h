@@ -3265,6 +3265,7 @@ static inline bool __is_valid_data_blkaddr(block_t blkaddr)
 	return true;
 }
 
+#if 0
 /**
  * attach_page_private - Attach private data to a page.
  * @page: Page to attach data to.
@@ -3301,6 +3302,7 @@ static inline void *detach_page_private(struct page *page)
 
 	return data;
 }
+#endif
 
 /*
  * file.c

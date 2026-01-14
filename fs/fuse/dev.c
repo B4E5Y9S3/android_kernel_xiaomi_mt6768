@@ -1114,6 +1114,7 @@ __releases(fiq->waitq.lock)
 	unsigned reqsize = sizeof(ih) + sizeof(arg);
 	int err;
 
+	list_del_init(&req->intr_entry);
 	req->intr_unique = fuse_get_unique(fiq);
 	memset(&ih, 0, sizeof(ih));
 	memset(&arg, 0, sizeof(arg));
@@ -1121,7 +1122,6 @@ __releases(fiq->waitq.lock)
 	ih.opcode = FUSE_INTERRUPT;
 	ih.unique = req->intr_unique;
 	arg.unique = req->in.h.unique;
-	list_del_init(&req->intr_entry);
 
 	spin_unlock(&fiq->waitq.lock);
 	if (nbytes < reqsize)
@@ -1282,10 +1282,9 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 	if (err)
 		goto err_unlock;
 
-	if (!fiq->connected) {
-		err = (fc->aborted && fc->abort_err) ? -ECONNABORTED : -ENODEV;
+	err = -ENODEV;
+	if (!fiq->connected)
 		goto err_unlock;
-	}
 
 	if (!list_empty(&fiq->interrupts)) {
 		req = list_entry(fiq->interrupts.next, struct fuse_req,
@@ -1345,7 +1344,7 @@ static ssize_t fuse_dev_do_read(struct fuse_dev *fud, struct file *file,
 	spin_lock(&fpq->lock);
 	clear_bit(FR_LOCKED, &req->flags);
 	if (!fpq->connected) {
-		err = (fc->aborted && fc->abort_err) ? -ECONNABORTED : -ENODEV;
+		err = -ENODEV;
 		goto out_end;
 	}
 	if (err) {
@@ -2157,7 +2156,7 @@ static void end_polls(struct fuse_conn *fc)
  * is OK, the request will in that case be removed from the list before we touch
  * it.
  */
-void fuse_abort_conn(struct fuse_conn *fc, bool is_abort)
+void fuse_abort_conn(struct fuse_conn *fc)
 {
 	struct fuse_iqueue *fiq = &fc->iq;
 
@@ -2170,7 +2169,6 @@ void fuse_abort_conn(struct fuse_conn *fc, bool is_abort)
 
 		fc->connected = 0;
 		fc->blocked = 0;
-		fc->aborted = is_abort;
 		fuse_set_initialized(fc);
 		list_for_each_entry(fud, &fc->devices, entry) {
 			struct fuse_pqueue *fpq = &fud->pq;
@@ -2246,7 +2244,7 @@ int fuse_dev_release(struct inode *inode, struct file *file)
 		/* Are we the last open device? */
 		if (atomic_dec_and_test(&fc->dev_count)) {
 			WARN_ON(fc->iq.fasync != NULL);
-			fuse_abort_conn(fc, false);
+			fuse_abort_conn(fc);
 		}
 		fuse_dev_free(fud);
 	}

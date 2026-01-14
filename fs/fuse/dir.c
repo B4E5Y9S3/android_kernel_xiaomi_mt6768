@@ -281,7 +281,7 @@ static void fuse_dentry_canonical_path(const struct path *path, struct path *can
 	if (IS_ERR(req))
 		goto default_path;
 
-	path_name = (char*)get_zeroed_page(GFP_KERNEL);
+	path_name = (char*)__get_free_page(GFP_KERNEL);
 	if (!path_name) {
 		fuse_put_request(fc, req);
 		goto default_path;
@@ -714,19 +714,11 @@ static int fuse_symlink(struct inode *dir, struct dentry *entry,
 	return create_new_entry(fc, &args, dir, entry, S_IFLNK);
 }
 
-void fuse_flush_time_update(struct inode *inode)
-{
-	int err = sync_inode_metadata(inode, 1);
-
-	mapping_set_error(inode->i_mapping, err);
-}
-
 void fuse_update_ctime(struct inode *inode)
 {
 	if (!IS_NOCMTIME(inode)) {
 		inode->i_ctime = current_time(inode);
 		mark_inode_dirty_sync(inode);
-		fuse_flush_time_update(inode);
 	}
 }
 

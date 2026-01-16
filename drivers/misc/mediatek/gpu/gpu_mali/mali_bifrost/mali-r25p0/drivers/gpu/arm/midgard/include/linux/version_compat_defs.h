@@ -298,11 +298,7 @@ static inline long kbase_pin_user_pages_remote(struct task_struct *tsk, struct m
 #define KBASE_CLASS_CREATE(owner, name) class_create(owner, name)
 #endif /* (KERNEL_VERSION(6, 4, 0) <= LINUX_VERSION_CODE) */
 
-#if KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE
-#define kbase_totalram_pages() totalram_pages
-#else
 #define kbase_totalram_pages() totalram_pages()
-#endif /* KERNEL_VERSION(5, 0, 0) > LINUX_VERSION_CODE */
 
 /* For kernel versions from 6.5 onward, the read_poll_timeout_atomic() implementation does not
  * suit our usecase where we have a delay_us of zero. This causes the timeout to take allot longer

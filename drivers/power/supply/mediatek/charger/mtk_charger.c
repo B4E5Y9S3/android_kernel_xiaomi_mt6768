@@ -521,7 +521,9 @@ int _charger_manager_set_input_current_limit(struct charger_manager *info,
 			pdata->thermal_input_current_limit = input_current;
 		}
 
+#ifdef CONFIG_MTK_ENG_BUILD
 		chr_err("%s: idx:%d en:%d\n", __func__, idx, input_current);
+#endif
 		_mtk_charger_change_current_setting(info);
 		_wake_up_charger(info);
 		return 0;

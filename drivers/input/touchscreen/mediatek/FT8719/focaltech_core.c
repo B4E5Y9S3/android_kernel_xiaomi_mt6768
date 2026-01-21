@@ -93,8 +93,10 @@ struct fts_ts_data *fts_data;
 extern bool fts_gesture_flag;
 extern int32_t fts_extra_proc_init(void);
 extern int32_t fts_extra_proc_deinit(void);
+#ifdef CONFIG_TOUCHSCREEN_FT8719_DEBUG
 extern int fts_tp_data_dump_proc_init(void);
 extern void fts_tp_data_dump_proc_exit(void);
+#endif
 
 /*****************************************************************************
  * Static function prototypes
@@ -1112,11 +1114,13 @@ static int fts_ts_probe_entry(struct fts_ts_data *ts_data) {
     goto err_fts_extra_proc_init_failed;
   }
 
+#ifdef CONFIG_TOUCHSCREEN_FT8719_DEBUG
   ret = fts_tp_data_dump_proc_init();
   if (ret != 0) {
     FTS_ERROR("fts extra proc tp data dump failed. ret=%d\n", ret);
     goto err_fts_tp_data_dump_proc_init_failed;
   }
+#endif
 
   ret = fts_ex_mode_init(ts_data);
   if (ret) {
@@ -1189,10 +1193,12 @@ err_fts_extra_proc_init_failed:
   FTS_FUNC_EXIT();
   return ret;
 
+#ifdef CONFIG_TOUCHSCREEN_FT8719_DEBUG
 err_fts_tp_data_dump_proc_init_failed:
   fts_tp_data_dump_proc_exit();
   FTS_FUNC_EXIT();
   return ret;
+#endif
 }
 
 static int fts_ts_remove_entry(struct fts_ts_data *ts_data) {

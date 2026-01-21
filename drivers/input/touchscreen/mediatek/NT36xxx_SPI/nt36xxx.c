@@ -105,8 +105,10 @@ static void nvt_ts_late_resume(struct early_suspend *h);
 char lockdown[17] = {0};
 /*BSP.Tp - 2020.11.05 -add NVT_LOCKDOWN - end*/
 uint32_t ENG_RST_ADDR  = 0x7FFF80;
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 uint32_t SWRST_N8_ADDR; //read from dtsi
 uint32_t SPI_RD_FAST_ADDR;	//read from dtsi
+#endif
 
 /*BSP.TP - Add for tp detect - 2021.03.10 - Start*/
 int is_ft_lcm;
@@ -781,9 +783,11 @@ info_retry:
 	ts->fw_ver = buf[1];
 	ts->x_num = buf[3];
 	ts->y_num = buf[4];
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	ts->abs_x_max = (uint16_t)((buf[5] << 8) | buf[6]);
 	ts->abs_y_max = (uint16_t)((buf[7] << 8) | buf[8]);
 	ts->max_button_num = buf[11];
+#endif
 
 	//---clear x_num, y_num if fw info is broken---
 	if ((buf[1] + buf[2]) != 0xFF) {
@@ -791,9 +795,11 @@ info_retry:
 		ts->fw_ver = 0;
 		ts->x_num = 18;
 		ts->y_num = 32;
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 		ts->abs_x_max = TOUCH_DEFAULT_MAX_WIDTH;
 		ts->abs_y_max = TOUCH_DEFAULT_MAX_HEIGHT;
 		ts->max_button_num = TOUCH_KEY_NUM;
+#endif
 
 		if (retry_count < 3) {
 			retry_count++;
@@ -803,7 +809,11 @@ info_retry:
 			NVT_ERR("Set default fw_ver=%d, x_num=%d, y_num=%d, "
 					"abs_x_max=%d, abs_y_max=%d, max_button_num=%d!\n",
 					ts->fw_ver, ts->x_num, ts->y_num,
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 					ts->abs_x_max, ts->abs_y_max, ts->max_button_num);
+#else
+					ABS_X_MAX, ABS_Y_MAX, MAX_BUTTON_NUM);
+#endif
 			ret = -1;
 		}
 	} else {
@@ -1174,7 +1184,9 @@ return:
 static int32_t nvt_parse_dt(struct device *dev)
 {
 	struct device_node *np = dev->of_node;
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	int32_t ret = 0;
+#endif
 
 #if NVT_TOUCH_SUPPORT_HW_RST
 	ts->reset_gpio = of_get_named_gpio_flags(np, "novatek,reset-gpio", 0, &ts->reset_flags);
@@ -1183,6 +1195,7 @@ static int32_t nvt_parse_dt(struct device *dev)
 	ts->irq_gpio = of_get_named_gpio_flags(np, "novatek,irq-gpio", 0, &ts->irq_flags);
 	NVT_LOG("novatek,irq-gpio=%d\n", ts->irq_gpio);
 
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	ret = of_property_read_u32(np, "novatek,swrst-n8-addr", &SWRST_N8_ADDR);
 	if (ret) {
 		NVT_ERR("error reading novatek,swrst-n8-addr. ret=%d\n", ret);
@@ -1201,6 +1214,9 @@ static int32_t nvt_parse_dt(struct device *dev)
 	}
 
 	return ret;
+#else
+	return 0;
+#endif
 }
 #else
 static int32_t nvt_parse_dt(struct device *dev)
@@ -1505,11 +1521,19 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 	}
 #endif
 
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	for (i = 0; i < ts->max_touch_num; i++) {
+#else
+	for (i = 0; i < TOUCH_MAX_FINGER_NUM; i++) {
+#endif
 		position = 1 + 6 * i;
 		input_id = (uint8_t) (point_data[position] >> 3);
 
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 		if ((input_id == 0) || (input_id > ts->max_touch_num))
+#else
+		if ((input_id == 0) || (input_id > TOUCH_MAX_FINGER_NUM))
+#endif
 			continue;
 
 		if (likely(((point_data[position] & 0x07) == 0x01) || ((point_data[position] & 0x07) == 0x02))) {	//finger down (enter & moving)
@@ -1542,7 +1566,11 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 	}
 
 #if MT_PROTOCOL_B
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	for (i = 0; i < ts->max_touch_num; i++) {
+#else
+	for (i = 0; i < TOUCH_MAX_FINGER_NUM; i++) {
+#endif
 		if (likely(press_id[i] != 1)) {
 			input_mt_slot(ts->input_dev, i);
 			input_report_abs(ts->input_dev, ABS_MT_PRESSURE, 0);
@@ -1564,11 +1592,19 @@ static irqreturn_t nvt_ts_work_func(int irq, void *data)
 		/* update interrupt timer */
 		irq_timer = jiffies;
 #endif /* #if NVT_TOUCH_ESD_PROTECT */
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 		for (i = 0; i < ts->max_button_num; i++) {
+#else
+		for (i = 0; i < MAX_BUTTON_NUM; i++) {
+#endif
 			input_report_key(ts->input_dev, touch_key_array[i], ((point_data[62] >> i) & 0x01));
 		}
 	} else {
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 		for (i = 0; i < ts->max_button_num; i++) {
+#else
+		for (i = 0; i < MAX_BUTTON_NUM; i++) {
+#endif
 			input_report_key(ts->input_dev, touch_key_array[i], 0);
 		}
 	}
@@ -1593,6 +1629,7 @@ return:
 *******************************************************/
 static int8_t nvt_ts_check_chip_ver_trim(uint32_t chip_ver_trim_addr)
 {
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	uint8_t buf[8] = {0};
 	int32_t retry = 0;
 	int32_t list = 0;
@@ -1660,6 +1697,12 @@ static int8_t nvt_ts_check_chip_ver_trim(uint32_t chip_ver_trim_addr)
 
 out:
 	return ret;
+#endif
+	ts->mmap = &NT36672A_memory_map;
+	ts->carrier_system = NT36672A_hw_info.carrier_system;
+	ts->hw_crc = NT36672A_hw_info.hw_crc;
+
+	return 0;
 }
 
 #if WAKEUP_GESTURE
@@ -1962,8 +2005,10 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 		}
 	}
 
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	ts->abs_x_max = TOUCH_DEFAULT_MAX_WIDTH;
 	ts->abs_y_max = TOUCH_DEFAULT_MAX_HEIGHT;
+#endif
 
 	//---allocate input device---
 	ts->input_dev = input_allocate_device();
@@ -1973,10 +2018,14 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 		goto err_input_dev_alloc_failed;
 	}
 
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	ts->max_touch_num = TOUCH_MAX_FINGER_NUM;
+#endif
 
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 #if TOUCH_KEY_NUM > 0
 	ts->max_button_num = TOUCH_KEY_NUM;
+#endif
 #endif
 
 	ts->int_trigger_type = INT_TRIGGER_TYPE;
@@ -1988,7 +2037,11 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 	ts->input_dev->propbit[0] = BIT(INPUT_PROP_DIRECT);
 
 #if MT_PROTOCOL_B
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	input_mt_init_slots(ts->input_dev, ts->max_touch_num, 0);
+#else
+	input_mt_init_slots(ts->input_dev, TOUCH_MAX_FINGER_NUM, 0);
+#endif
 #endif
 
 	input_set_abs_params(ts->input_dev, ABS_MT_PRESSURE, 0, TOUCH_FORCE_NUM, 0, 0);    //pressure = TOUCH_FORCE_NUM
@@ -1996,17 +2049,30 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 #if TOUCH_MAX_FINGER_NUM > 1
 	input_set_abs_params(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);    //area = 255
 
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, ts->abs_x_max - 1, 0, 0);
 	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0, ts->abs_y_max - 1, 0, 0);
+#else
+	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_X, 0, ABS_X_MAX - 1, 0, 0);
+	input_set_abs_params(ts->input_dev, ABS_MT_POSITION_Y, 0, ABS_Y_MAX - 1, 0, 0);
+#endif
 #if MT_PROTOCOL_B
 	// no need to set ABS_MT_TRACKING_ID, input_mt_init_slots() already set it
 #else
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	input_set_abs_params(ts->input_dev, ABS_MT_TRACKING_ID, 0, ts->max_touch_num, 0, 0);
+#else
+	input_set_abs_params(ts->input_dev, ABS_MT_TRACKING_ID, 0, TOUCH_MAX_FINGER_NUM, 0, 0);
+#endif
 #endif //MT_PROTOCOL_B
 #endif //TOUCH_MAX_FINGER_NUM > 1
 
 #if TOUCH_KEY_NUM > 0
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	for (retry = 0; retry < ts->max_button_num; retry++) {
+#else
+	for (retry = 0; retry < MAX_BUTTON_NUM; retry++) {
+#endif
 		input_set_capability(ts->input_dev, EV_KEY, touch_key_array[retry]);
 	}
 #endif
@@ -2515,7 +2581,11 @@ static int32_t nvt_ts_suspend(struct device *dev)
 
 	/* release all touches */
 #if MT_PROTOCOL_B
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	for (i = 0; i < ts->max_touch_num; i++) {
+#else
+	for (i = 0; i < TOUCH_MAX_FINGER_NUM; i++) {
+#endif
 		input_mt_slot(ts->input_dev, i);
 		input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0);
 		input_report_abs(ts->input_dev, ABS_MT_PRESSURE, 0);
@@ -2590,7 +2660,11 @@ int32_t nvt_ts_tp_suspend(void)
 
 	/* release all touches */
 #if MT_PROTOCOL_B
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	for (i = 0; i < ts->max_touch_num; i++) {
+#else
+	for (i = 0; i < TOUCH_MAX_FINGER_NUM; i++) {
+#endif
 		input_mt_slot(ts->input_dev, i);
 		input_report_abs(ts->input_dev, ABS_MT_TOUCH_MAJOR, 0);
 		input_report_abs(ts->input_dev, ABS_MT_PRESSURE, 0);

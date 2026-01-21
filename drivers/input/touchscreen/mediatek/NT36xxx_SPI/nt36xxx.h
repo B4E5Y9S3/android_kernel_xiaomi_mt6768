@@ -171,10 +171,12 @@ struct nvt_ts_data {
 	uint8_t fw_ver;
 	uint8_t x_num;
 	uint8_t y_num;
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	uint16_t abs_x_max;
 	uint16_t abs_y_max;
 	uint8_t max_touch_num;
 	uint8_t max_button_num;
+#endif
 	uint32_t int_trigger_type;
 	int32_t irq_gpio;
 	uint32_t irq_flags;
@@ -285,4 +287,9 @@ void nvt_bootloader_reset_locked(void);
 int32_t nvt_esd_vdd_tp_recovery(void);
 #endif
 /* Huaqin modify for HQ-144782 by caogaojie at 2021/07/05 end */
+#define SWRST_N8_ADDR 0x03F0FE
+#define SPI_RD_FAST_ADDR 0x03F310
+#define ABS_X_MAX TOUCH_DEFAULT_MAX_WIDTH
+#define ABS_Y_MAX TOUCH_DEFAULT_MAX_HEIGHT
+#define MAX_BUTTON_NUM TOUCH_KEY_NUM
 #endif /* _LINUX_NVT_TOUCH_H */

@@ -107,10 +107,8 @@ extern const uint16_t touch_key_array[TOUCH_KEY_NUM];
 
 /* Enable only when module have tp reset pin and connected to host */
 /* Huaqin modify for TP not need tp reset by zhangjiangbin at 2021/07/13 start */
-#ifdef CONFIG_TARGET_PRODUCT_MERLINCOMMON
+#ifndef CONFIG_TARGET_PRODUCT_SELENECOMMON
 #define NVT_TOUCH_SUPPORT_HW_RST 1
-#else
-#define NVT_TOUCH_SUPPORT_HW_RST 0
 #endif
 
 /* Huaqin modify for TP not need tp reset by zhangjiangbin at 2021/07/13 end */
@@ -291,9 +289,7 @@ void nvt_bootloader_reset_locked(void);
 int32_t nvt_esd_vdd_tp_recovery(void);
 #endif
 /* Huaqin modify for HQ-144782 by caogaojie at 2021/07/05 end */
-#ifdef CONFIG_TARGET_PRODUCT_MERLINCOMMON
 #define RESET_GPIO (325 + 92)
-#endif
 #define IRQ_GPIO (325 + 1)
 #define SWRST_N8_ADDR 258302
 #define SPI_RD_FAST_ADDR 258832

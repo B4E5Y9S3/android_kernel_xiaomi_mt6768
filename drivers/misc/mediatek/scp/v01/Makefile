@@ -12,7 +12,7 @@ ccflags-y += -I$(srctree)/drivers/misc/mediatek/include/mt-plat/$(CONFIG_MTK_PLA
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/submodule
 ccflags-y += -I$(srctree)/drivers/misc/mediatek/emi/$(CONFIG_MTK_PLATFORM)
 
-#ifeq ($(CONFIG_MTK_ENG_BUILD),y)
+ifeq ($(CONFIG_MTK_ENG_BUILD),y)
 CFLAGS_scp_logger.o += -DDEBUG
 CFLAGS_scp_helper.o += -DDEBUG
 CFLAGS_scp_excep.o += -DDEBUG
@@ -20,4 +20,4 @@ CFLAGS_scp_ipi.o += -DDEBUG
 CFLAGS_scp_irq.o += -DDEBUG
 CFLAGS_scp_dvfs.o += -DDEBUG
 CFLAGS_scp_scpctl.o += -DDEBUG
-#endif
+endif

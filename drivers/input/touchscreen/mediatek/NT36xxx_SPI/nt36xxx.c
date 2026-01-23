@@ -1173,6 +1173,7 @@ void nvt_ts_wakeup_gesture_report(uint8_t gesture_id, uint8_t *data)
 }
 #endif
 
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 /*******************************************************
 Description:
 	Novatek touchscreen parse device tree function.
@@ -1184,9 +1185,7 @@ return:
 static int32_t nvt_parse_dt(struct device *dev)
 {
 	struct device_node *np = dev->of_node;
-#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	int32_t ret = 0;
-#endif
 
 #if NVT_TOUCH_SUPPORT_HW_RST
 	ts->reset_gpio = of_get_named_gpio_flags(np, "novatek,reset-gpio", 0, &ts->reset_flags);
@@ -1195,7 +1194,6 @@ static int32_t nvt_parse_dt(struct device *dev)
 	ts->irq_gpio = of_get_named_gpio_flags(np, "novatek,irq-gpio", 0, &ts->irq_flags);
 	NVT_LOG("novatek,irq-gpio=%d\n", ts->irq_gpio);
 
-#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	ret = of_property_read_u32(np, "novatek,swrst-n8-addr", &SWRST_N8_ADDR);
 	if (ret) {
 		NVT_ERR("error reading novatek,swrst-n8-addr. ret=%d\n", ret);
@@ -1214,9 +1212,6 @@ static int32_t nvt_parse_dt(struct device *dev)
 	}
 
 	return ret;
-#else
-	return 0;
-#endif
 }
 #else
 static int32_t nvt_parse_dt(struct device *dev)
@@ -1227,6 +1222,7 @@ static int32_t nvt_parse_dt(struct device *dev)
 	ts->irq_gpio = NVTTOUCH_INT_PIN;
 	return 0;
 }
+#endif
 #endif
 
 /*******************************************************
@@ -1242,8 +1238,8 @@ static int nvt_gpio_config(struct nvt_ts_data *ts)
 
 #if NVT_TOUCH_SUPPORT_HW_RST
 	/* request RST-pin (Output/High) */
-	if (gpio_is_valid(ts->reset_gpio)) {
-		ret = gpio_request_one(ts->reset_gpio, GPIOF_OUT_INIT_LOW, "NVT-tp-rst");
+	if (gpio_is_valid(RESET_GPIO)) {
+		ret = gpio_request_one(RESET_GPIO, GPIOF_OUT_INIT_LOW, "NVT-tp-rst");
 		if (ret) {
 			NVT_ERR("Failed to request NVT-tp-rst GPIO\n");
 			goto err_request_reset_gpio;
@@ -1252,8 +1248,8 @@ static int nvt_gpio_config(struct nvt_ts_data *ts)
 #endif
 
 	/* request INT-pin (Input) */
-	if (gpio_is_valid(ts->irq_gpio)) {
-		ret = gpio_request_one(ts->irq_gpio, GPIOF_IN, "NVT-int");
+	if (gpio_is_valid(IRQ_GPIO)) {
+		ret = gpio_request_one(IRQ_GPIO, GPIOF_IN, "NVT-int");
 		if (ret) {
 			NVT_ERR("Failed to request NVT-int GPIO\n");
 			goto err_request_irq_gpio;
@@ -1264,7 +1260,7 @@ static int nvt_gpio_config(struct nvt_ts_data *ts)
 
 err_request_irq_gpio:
 #if NVT_TOUCH_SUPPORT_HW_RST
-	gpio_free(ts->reset_gpio);
+	gpio_free(RESET_GPIO);
 err_request_reset_gpio:
 #endif
 	return ret;
@@ -1279,11 +1275,11 @@ return:
 *******************************************************/
 static void nvt_gpio_deconfig(struct nvt_ts_data *ts)
 {
-	if (gpio_is_valid(ts->irq_gpio))
-		gpio_free(ts->irq_gpio);
+	if (gpio_is_valid(IRQ_GPIO))
+		gpio_free(IRQ_GPIO);
 #if NVT_TOUCH_SUPPORT_HW_RST
-	if (gpio_is_valid(ts->reset_gpio))
-		gpio_free(ts->reset_gpio);
+	if (gpio_is_valid(RESET_GPIO))
+		gpio_free(RESET_GPIO);
 #endif
 }
 
@@ -1966,12 +1962,14 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 
 	NVT_LOG("mode=%d, max_speed_hz=%d\n", ts->client->mode, ts->client->max_speed_hz);
 
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	//---parse dts---
 	ret = nvt_parse_dt(&client->dev);
 	if (ret) {
 		NVT_ERR("parse dt error\n");
 		goto err_spi_setup;
 	}
+#endif
 
 	//---request and config GPIOs---
 	ret = nvt_gpio_config(ts);
@@ -1987,7 +1985,7 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 	nvt_eng_reset();
 
 #if NVT_TOUCH_SUPPORT_HW_RST
-	gpio_set_value(ts->reset_gpio, 1);
+	gpio_set_value(RESET_GPIO, 1);
 #endif
 
 	// need 10ms delay after POR(power on reset)
@@ -2104,7 +2102,7 @@ static int32_t nvt_ts_probe(struct spi_device *client)
 	}
 
 	//---set int-pin & request irq---
-	client->irq = gpio_to_irq(ts->irq_gpio);
+	client->irq = gpio_to_irq(IRQ_GPIO);
 	if (client->irq) {
 		NVT_LOG("int_trigger_type=%d\n", ts->int_trigger_type);
 		ts->irq_enabled = true;
@@ -2712,7 +2710,7 @@ static int32_t nvt_ts_resume(struct device *dev)
 
 	// please make sure display reset(RESX) sequence and mipi dsi cmds sent before this
 #if NVT_TOUCH_SUPPORT_HW_RST
-	gpio_set_value(ts->reset_gpio, 1);
+	gpio_set_value(RESET_GPIO, 1);
 #endif
 	if (nvt_update_firmware(BOOT_UPDATE_FIRMWARE_NAME)) {
 		NVT_ERR("download firmware failed, ignore check fw state\n");
@@ -2770,7 +2768,7 @@ int32_t nvt_ts_tp_resume(void)
 
 	// please make sure display reset(RESX) sequence and mipi dsi cmds sent before this
 #if NVT_TOUCH_SUPPORT_HW_RST
-	gpio_set_value(ts->reset_gpio, 1);
+	gpio_set_value(RESET_GPIO, 1);
 	msleep(10);
 #endif
 	if (nvt_update_firmware(BOOT_UPDATE_FIRMWARE_NAME)) {

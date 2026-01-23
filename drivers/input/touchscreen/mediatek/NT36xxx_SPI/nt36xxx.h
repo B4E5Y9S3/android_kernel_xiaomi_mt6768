@@ -178,9 +178,13 @@ struct nvt_ts_data {
 	uint8_t max_button_num;
 #endif
 	uint32_t int_trigger_type;
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	int32_t irq_gpio;
+#endif
 	uint32_t irq_flags;
+#if !defined(CONFIG_TARGET_PRODUCT_LANCELOTCOMMON) && !defined(CONFIG_TARGET_PRODUCT_MERLINCOMMON) && !defined(CONFIG_TARGET_PRODUCT_SHIVACOMMON)
 	int32_t reset_gpio;
+#endif
 	uint32_t reset_flags;
 	struct mutex lock;
 	const struct nvt_ts_mem_map *mmap;
@@ -287,8 +291,12 @@ void nvt_bootloader_reset_locked(void);
 int32_t nvt_esd_vdd_tp_recovery(void);
 #endif
 /* Huaqin modify for HQ-144782 by caogaojie at 2021/07/05 end */
-#define SWRST_N8_ADDR 0x03F0FE
-#define SPI_RD_FAST_ADDR 0x03F310
+#ifdef CONFIG_TARGET_PRODUCT_MERLINCOMMON
+#define RESET_GPIO (325 + 92)
+#endif
+#define IRQ_GPIO (325 + 1)
+#define SWRST_N8_ADDR 258302
+#define SPI_RD_FAST_ADDR 258832
 #define ABS_X_MAX TOUCH_DEFAULT_MAX_WIDTH
 #define ABS_Y_MAX TOUCH_DEFAULT_MAX_HEIGHT
 #define MAX_BUTTON_NUM TOUCH_KEY_NUM

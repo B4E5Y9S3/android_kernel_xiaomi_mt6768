@@ -909,7 +909,9 @@ DEVICE_ATTR(log_filter, 0200, NULL, scp_set_log_filter);
 static struct miscdevice scp_device = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "scp",
+#if 0
 	.fops = &scp_A_log_file_ops
+#endif
 };
 
 
@@ -1547,12 +1549,14 @@ void scp_sys_reset_ws(struct work_struct *ws)
 			pr_debug("[SCP] %s: scp ee time out\n", __func__);
 	}
 
+#if 0
 	/*disable scp logger
 	 * 0: scp logger disable
 	 * 1: scp logger enable
 	 */
 	pr_debug("[SCP] %s(): disable logger\n", __func__);
 	scp_logger_init_set(0);
+#endif
 
 	print_clk_registers();
 

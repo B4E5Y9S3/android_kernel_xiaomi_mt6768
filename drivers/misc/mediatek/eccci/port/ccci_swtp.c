@@ -30,6 +30,7 @@
 
 const struct of_device_id swtp_of_match[] = {
 	{ .compatible = SWTP_COMPATIBLE_DEVICE_ID, },
+	{ .compatible = SWTP1_COMPATIBLE_DEVICE_ID,},
 	{},
 };
 #define SWTP_MAX_SUPPORT_MD 1
@@ -191,7 +192,6 @@ int swtp_md_tx_power_req_hdlr(int md_id, int data)
 int swtp_init(int md_id)
 {
 	int ret = 0;
-	struct device_node *node = NULL;
 #ifdef CONFIG_MTK_EIC
 	u32 ints[2] = { 0, 0 };
 	u32 ints1[2] = { 0, 0 };
@@ -199,6 +199,7 @@ int swtp_init(int md_id)
 	u32 ints[1] = { 0 };
 	u32 ints1[4] = { 0, 0, 0, 0 };
 #endif
+	struct device_node *node = NULL;
 
 	if (md_id < 0 || md_id >= SWTP_MAX_SUPPORT_MD) {
 		CCCI_LEGACY_ERR_LOG(-1, SYS,

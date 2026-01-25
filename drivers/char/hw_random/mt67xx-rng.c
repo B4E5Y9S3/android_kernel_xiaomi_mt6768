@@ -35,17 +35,14 @@ static void __rng_sec_read(uint32_t *val)
 
 static int mt67xx_rng_read(struct hwrng *rng, void *buf, size_t max, bool wait)
 {
-	int i, retval = 0;
+	int retval = 0;
 	uint32_t val[4] = {0};
 
 	while (max >= SEC_RND_SIZE) {
 		__rng_sec_read(val);
 
-		for (i = 0; i < SMC_RET_NUM; i++) {
-			*(u32 *)buf = val[i];
-			buf += sizeof(u32);
-		}
-
+		memcpy(buf, val, SEC_RND_SIZE);
+		buf += SEC_RND_SIZE;
 		retval += SEC_RND_SIZE;
 		max -= SEC_RND_SIZE;
 	}

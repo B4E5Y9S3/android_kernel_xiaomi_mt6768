@@ -63,51 +63,9 @@ const char * const *kbase_gator_hwcnt_init_names(uint32_t *total_counters)
 
 	gpu_id = kbdev->gpu_props.gpu_id.product_model;
 
-	
-	switch (gpu_id & GPU_ID2_PRODUCT_MODEL) {
-	case GPU_ID2_PRODUCT_TMIX:
-		hardware_counters = hardware_counters_mali_tMIx;
-		count = ARRAY_SIZE(hardware_counters_mali_tMIx);
-		break;
-	case GPU_ID2_PRODUCT_THEX:
-		hardware_counters = hardware_counters_mali_tHEx;
-		count = ARRAY_SIZE(hardware_counters_mali_tHEx);
-		break;
-	case GPU_ID2_PRODUCT_TSIX:
-		hardware_counters = hardware_counters_mali_tSIx;
-		count = ARRAY_SIZE(hardware_counters_mali_tSIx);
-		break;
-	case GPU_ID2_PRODUCT_TDVX:
-		hardware_counters = hardware_counters_mali_tSIx;
-		count = ARRAY_SIZE(hardware_counters_mali_tSIx);
-		break;
-	case GPU_ID2_PRODUCT_TNOX:
-		hardware_counters = hardware_counters_mali_tNOx;
-		count = ARRAY_SIZE(hardware_counters_mali_tNOx);
-		break;
-	case GPU_ID2_PRODUCT_TGOX:
-		hardware_counters = hardware_counters_mali_tGOx;
-		count = ARRAY_SIZE(hardware_counters_mali_tGOx);
-		break;
-	case GPU_ID2_PRODUCT_TTRX:
-		hardware_counters = hardware_counters_mali_tTRx;
-		count = ARRAY_SIZE(hardware_counters_mali_tTRx);
-		break;
-	case GPU_ID2_PRODUCT_TNAX:
-		hardware_counters = hardware_counters_mali_tNAx;
-		count = ARRAY_SIZE(hardware_counters_mali_tNAx);
-		break;
-	case GPU_ID2_PRODUCT_TBEX:
-		hardware_counters = hardware_counters_mali_tBEx;
-		count = ARRAY_SIZE(hardware_counters_mali_tBEx);
-		break;
-	default:
-		hardware_counters = NULL;
-		count = 0;
-		dev_err(kbdev->dev, "Unrecognized product ID: %u\n",
-			gpu_id);
-		break;
-	}
+	// Mali-G52
+	hardware_counters = hardware_counters_mali_tGOx;
+	count = ARRAY_SIZE(hardware_counters_mali_tGOx);
 
 	/* Release the kbdev reference. */
 	kbase_release_device(kbdev);

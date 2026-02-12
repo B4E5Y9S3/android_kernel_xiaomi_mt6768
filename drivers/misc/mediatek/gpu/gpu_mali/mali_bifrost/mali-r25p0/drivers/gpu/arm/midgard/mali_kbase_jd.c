@@ -762,7 +762,6 @@ static bool jd_submit_atom(struct kbase_context *const kctx,
 	katom->frame_nr = user_atom->frame_nr;
 #endif
 
-
 	/* Implicitly sets katom->protected_state.enter as well. */
 	katom->protected_state.exit = KBASE_ATOM_EXIT_PROTECTED_CHECK;
 

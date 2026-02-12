@@ -5940,7 +5940,6 @@ static void kbase_platform_device_remove(struct platform_device *pdev)
 	if (mtk_common_deinit(pdev, kbdev))
 		pr_info("[MALI] fail to mtk_common_deinit\n");
 
-
 	kbase_device_term(kbdev);
 	dev_set_drvdata(kbdev->dev, NULL);
 	kbase_device_free(kbdev);
@@ -5995,14 +5994,13 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 #if (KERNEL_VERSION(5, 3, 0) <= LINUX_VERSION_CODE)
 	mutex_lock(&kbase_probe_mutex);
 #endif
-	/* MTK */
+
 	err |= mtk_common_init(pdev, kbdev);
 	err |= mtk_platform_init(pdev, kbdev);
 	if (err) {
 		pr_err("[MALI] GPU: mtk_platform_init fail!\n");
 		return err;
 	}
-	/********/
 
 	err = kbase_device_init(kbdev);
 
@@ -6026,7 +6024,6 @@ static int kbase_platform_device_probe(struct platform_device *pdev)
 #ifdef CONFIG_PROC_FS
 	proc_mali_register();
 #endif /* CONFIG_PROC_FS */
-
 
 #ifdef ENABLE_COMMON_DVFS
 	g_malidev = kbdev;

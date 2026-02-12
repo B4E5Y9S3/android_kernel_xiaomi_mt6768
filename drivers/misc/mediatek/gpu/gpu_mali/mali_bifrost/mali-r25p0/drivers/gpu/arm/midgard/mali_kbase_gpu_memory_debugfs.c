@@ -45,7 +45,7 @@ static int kbasep_gpu_memory_seq_show(struct seq_file *sfile, void *data)
 {
 	struct list_head *entry;
 	const struct list_head *kbdev_list;
-	
+
 	CSTD_UNUSED(data);
 
 #ifdef ENABLE_MTK_MEMINFO

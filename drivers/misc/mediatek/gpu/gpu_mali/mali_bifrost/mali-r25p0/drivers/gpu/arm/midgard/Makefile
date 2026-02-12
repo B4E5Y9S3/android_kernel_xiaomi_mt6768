@@ -36,50 +36,19 @@ CONFIGS :=
 ifeq ($(MALI_KCONFIG_EXT_PREFIX),)
     CONFIG_MALI_MIDGARD ?= m
     ifeq ($(CONFIG_MALI_MIDGARD),m)
-        CONFIG_MALI_PLATFORM_NAME ?= "devicetree"
+        CONFIG_MALI_PLATFORM_NAME ?= $(CONFIG_MTK_PLATFORM)
         CONFIG_MALI_TRACE_POWER_GPU_WORK_PERIOD ?= y
         CONFIG_MALI_GATOR_SUPPORT ?= y
         CONFIG_MALI_ARBITRATION ?= n
         CONFIG_MALI_PARTITION_MANAGER ?= n
 
 
-CONFIG_MALI_MIDGARD ?= m
-ifeq ($(CONFIG_MALI_MIDGARD),m)
-    CONFIG_MALI_PLATFORM_NAME ?= $(CONFIG_MTK_PLATFORM)
-    CONFIG_MALI_GATOR_SUPPORT ?= y
-    CONFIG_MALI_ARBITRATION ?= n
-    CONFIG_MALI_PARTITION_MANAGER ?= n
-
-    ifneq ($(CONFIG_MALI_NO_MALI),y)
-        # Prevent misuse when CONFIG_MALI_NO_MALI!=y
-        CONFIG_MALI_REAL_HW ?= y
-    else
-        CONFIG_MALI_CORESIGHT = n
-    endif
-
-    ifeq ($(CONFIG_MALI_MIDGARD_DVFS),y)
-        # Prevent misuse when CONFIG_MALI_MIDGARD_DVFS=y
-        CONFIG_MALI_DEVFREQ ?= n
-    else
-        CONFIG_MALI_DEVFREQ ?= y
-    endif
-
-    ifeq ($(CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND), y)
-        # Prevent misuse when CONFIG_MALI_DMA_BUF_MAP_ON_DEMAND=y
-        CONFIG_MALI_DMA_BUF_LEGACY_COMPAT = n
-    endif
-
-    ifeq ($(CONFIG_MALI_CSF_SUPPORT), y)
-        CONFIG_MALI_CORESIGHT ?= n
-    endif
-
-    #
-    # Expert/Debug/Test released configurations
-    #
-    ifeq ($(CONFIG_MALI_EXPERT), y)
-        ifeq ($(CONFIG_MALI_NO_MALI), y)
-            CONFIG_MALI_REAL_HW = n
-            CONFIG_MALI_NO_MALI_DEFAULT_GPU ?= "tMIx"
+        ifneq ($(CONFIG_MALI_NO_MALI),y)
+            # Prevent misuse when CONFIG_MALI_NO_MALI!=y
+            CONFIG_MALI_REAL_HW ?= y
+        else
+            CONFIG_MALI_CORESIGHT = n
+        endif
 
         ifeq ($(CONFIG_MALI_MIDGARD_DVFS),y)
             # Prevent misuse when CONFIG_MALI_MIDGARD_DVFS=y

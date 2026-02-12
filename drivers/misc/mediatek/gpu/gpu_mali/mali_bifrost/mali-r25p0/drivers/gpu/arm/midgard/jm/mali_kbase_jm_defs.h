@@ -607,11 +607,9 @@ struct kbase_jd_atom {
 	struct rb_node runnable_tree_node;
 
 	u32 age;
-
 #if defined(MTK_GPU_BM_2)
         u32 frame_nr;
 #endif
-
 };
 
 static inline bool kbase_jd_katom_is_protected(const struct kbase_jd_atom *katom)

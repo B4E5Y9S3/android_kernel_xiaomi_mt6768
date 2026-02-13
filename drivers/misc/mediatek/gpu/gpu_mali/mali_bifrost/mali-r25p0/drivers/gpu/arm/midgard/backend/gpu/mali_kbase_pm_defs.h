@@ -28,6 +28,7 @@
 
 #include "mali_kbase_pm_always_on.h"
 #include "mali_kbase_pm_coarse_demand.h"
+#include "mali_kbase_pm_adaptive.h"
 
 #include <hw_access/mali_kbase_hw_access_regmap.h>
 
@@ -253,6 +254,7 @@ struct kbasep_pm_tick_timer_state {
 union kbase_pm_policy_data {
 	struct kbasep_pm_policy_always_on always_on;
 	struct kbasep_pm_policy_coarse_demand coarse_demand;
+	struct kbasep_pm_policy_adaptive adaptive;
 };
 
 /**
@@ -566,6 +568,7 @@ struct kbase_pm_backend_data {
 	(CSF_DYNAMIC_PM_CORE_KEEP_ON | CSF_DYNAMIC_PM_SCHED_IGNORE_IDLE | \
 	 CSF_DYNAMIC_PM_SCHED_NO_SUSPEND)
 #define COARSE_ON_DEMAND_PM_SCHED_FLAGS (0)
+#define ADAPTIVE_PM_SCHED_FLAGS (0)
 #if !MALI_CUSTOMER_RELEASE
 #define ALWAYS_ON_DEMAND_PM_SCHED_FLAGS (CSF_DYNAMIC_PM_SCHED_IGNORE_IDLE)
 #endif
@@ -577,6 +580,7 @@ enum kbase_pm_policy_id {
 #if !MALI_CUSTOMER_RELEASE
 	KBASE_PM_POLICY_ID_ALWAYS_ON_DEMAND,
 #endif
+	KBASE_PM_POLICY_ID_ADAPTIVE,
 	KBASE_PM_POLICY_ID_ALWAYS_ON
 };
 

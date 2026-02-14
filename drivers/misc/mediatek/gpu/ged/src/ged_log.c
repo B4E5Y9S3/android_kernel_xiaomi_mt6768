@@ -284,6 +284,7 @@ GED_ERROR __ged_log_buf_print(struct GED_LOG_BUF *psGEDLogBuf,
 static int __ged_log_buf_write(struct GED_LOG_BUF *psGEDLogBuf,
 	const char __user *pszBuffer, int i32Count)
 {
+#if 0
 	int cnt;
 	char buf[256];
 
@@ -303,6 +304,8 @@ static int __ged_log_buf_write(struct GED_LOG_BUF *psGEDLogBuf,
 	__ged_log_buf_print(psGEDLogBuf, "%s", buf);
 
 	return cnt;
+#endif
+	return i32Count;
 }
 
 static int __ged_log_buf_check_get_early_list(GED_LOG_BUF_HANDLE hLogBuf,
@@ -490,7 +493,7 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 	GED_ERROR error;
 
 	if (((!pszName) && (!pszNodeName))
-		|| (i32MaxLineCount <= 0) || (i32MaxBufferSizeByte <= 0)) {
+		/*|| (i32MaxLineCount <= 0) || (i32MaxBufferSizeByte <= 0)*/) {
 		return (GED_LOG_BUF_HANDLE)0;
 	}
 
@@ -503,6 +506,7 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 
 	psGEDLogBuf->eType = eType;
 
+#if 0
 	switch (eType) {
 	case GED_LOG_BUF_TYPE_RINGBUFFER:
 		psGEDLogBuf->attrs = GED_LOG_ATTR_RINGBUFFER;
@@ -515,7 +519,9 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 			GED_LOG_ATTR_QUEUEBUFFER | GED_LOG_ATTR_AUTO_INCREASE;
 		break;
 	}
+#endif
 
+#if 0
 	psGEDLogBuf->i32MemorySize = i32MaxBufferSizeByte
 		+ sizeof(struct GED_LOG_BUF_LINE) * i32MaxLineCount;
 	psGEDLogBuf->pMemory = ged_alloc(psGEDLogBuf->i32MemorySize);
@@ -524,11 +530,20 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 		GED_LOGE("ged: failed to allocate log buf!\n");
 		return (GED_LOG_BUF_HANDLE)0;
 	}
+#endif
+	psGEDLogBuf->i32MemorySize = 0;
+	psGEDLogBuf->pMemory = NULL;
 
+#if 0
 	psGEDLogBuf->psLine = (struct GED_LOG_BUF_LINE *)psGEDLogBuf->pMemory;
 	psGEDLogBuf->pcBuffer = (char *)&psGEDLogBuf->psLine[i32MaxLineCount];
 	psGEDLogBuf->i32LineCount = i32MaxLineCount;
 	psGEDLogBuf->i32BufferSize = i32MaxBufferSizeByte;
+#endif
+	psGEDLogBuf->psLine = NULL;
+	psGEDLogBuf->pcBuffer = NULL;
+	psGEDLogBuf->i32LineCount = 0;
+	psGEDLogBuf->i32BufferSize = 0;
 	psGEDLogBuf->i32LineCurrent = 0;
 	psGEDLogBuf->i32BufferCurrent = 0;
 
@@ -537,12 +552,14 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 	psGEDLogBuf->acName[0] = '\0';
 	psGEDLogBuf->acNodeName[0] = '\0';
 
+#if 0
 	/* Init Line */
 	{
 		int i = 0;
 		for (i = 0; i < psGEDLogBuf->i32LineCount; ++i)
 			psGEDLogBuf->psLine[i].offset = -1;
 	}
+#endif
 
 	if (pszName) {
 		int cx;
@@ -578,8 +595,10 @@ GED_LOG_BUF_HANDLE ged_log_buf_alloc(
 			write_lock_bh(&gsGEDLogBufList.sLock);
 			list_del(&psGEDLogBuf->sList);
 			write_unlock_bh(&gsGEDLogBufList.sLock);
+#if 0
 			ged_free(psGEDLogBuf->pMemory,
 				psGEDLogBuf->i32MemorySize);
+#endif
 			ged_free(psGEDLogBuf, sizeof(struct GED_LOG_BUF));
 			return (GED_LOG_BUF_HANDLE)0;
 		}

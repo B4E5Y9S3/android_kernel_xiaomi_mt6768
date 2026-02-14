@@ -119,6 +119,7 @@ static struct GED_LOG_BUF *ged_log_buf_from_handle(GED_LOG_BUF_HANDLE hLogBuf)
 	return ged_hashtable_find(ghHashTable, (unsigned long)hLogBuf);
 }
 
+#if 0
 static
 GED_ERROR __ged_log_buf_vprint(struct GED_LOG_BUF *psGEDLogBuf,
 	const char *fmt, va_list args, int attrs)
@@ -259,7 +260,10 @@ GED_ERROR __ged_log_buf_vprint(struct GED_LOG_BUF *psGEDLogBuf,
 
 	return GED_OK;
 }
+#endif
+#define __ged_log_buf_vprint(psGEDLogBuf, fmt, args, attrs) (0)
 
+#if 0
 static
 GED_ERROR __ged_log_buf_print(struct GED_LOG_BUF *psGEDLogBuf,
 	const char *fmt, ...)
@@ -274,6 +278,8 @@ GED_ERROR __ged_log_buf_print(struct GED_LOG_BUF *psGEDLogBuf,
 
 	return err;
 }
+#endif
+#define __ged_log_buf_print(psGEDLogBuf, fmt, ...) (0)
 
 static int __ged_log_buf_write(struct GED_LOG_BUF *psGEDLogBuf,
 	const char __user *pszBuffer, int i32Count)
@@ -843,6 +849,7 @@ void ged_log_buf_free(GED_LOG_BUF_HANDLE hLogBuf)
 }
 EXPORT_SYMBOL(ged_log_buf_free);
 //-----------------------------------------------------------------------------
+#if 0
 GED_ERROR ged_log_buf_print(GED_LOG_BUF_HANDLE hLogBuf, const char *fmt, ...)
 {
 	va_list args;
@@ -880,6 +887,7 @@ GED_ERROR ged_log_buf_print2(GED_LOG_BUF_HANDLE hLogBuf,
 	return GED_OK;
 }
 EXPORT_SYMBOL(ged_log_buf_print2);
+#endif
 //-----------------------------------------------------------------------------
 GED_ERROR ged_log_buf_reset(GED_LOG_BUF_HANDLE hLogBuf)
 {

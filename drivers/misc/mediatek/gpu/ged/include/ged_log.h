@@ -54,12 +54,16 @@ GED_LOG_BUF_HANDLE ged_log_buf_get(const char *pszName);
 int ged_log_buf_get_early(const char *pszName,
 	GED_LOG_BUF_HANDLE *callback_set_handle);
 
+#if 0
 GED_ERROR ged_log_buf_print(GED_LOG_BUF_HANDLE hLogBuf,
 	const char *fmt, ...) GED_LOG_BUF_FORMAT_PRINTF(2, 3);
 
 GED_ERROR
 ged_log_buf_print2(GED_LOG_BUF_HANDLE hLogBuf, int i32LogAttrs,
 	const char *fmt, ...) GED_LOG_BUF_FORMAT_PRINTF(3, 4);
+#endif
+#define ged_log_buf_print(hLogBuf, fmt, ...) (0)
+#define ged_log_buf_print2(hLogBuf, fmt, ...) (0)
 
 GED_ERROR ged_log_system_init(void);
 

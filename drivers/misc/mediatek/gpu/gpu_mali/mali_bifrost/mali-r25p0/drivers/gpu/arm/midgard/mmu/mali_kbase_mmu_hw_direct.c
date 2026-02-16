@@ -528,22 +528,6 @@ int kbase_mmu_hw_do_flush(struct kbase_device *kbdev, struct kbase_as *as,
 	if (ret)
 		return ret;
 
-#if MALI_USE_CSF && !IS_ENABLED(CONFIG_MALI_NO_MALI)
-	/* WA for the BASE_HW_ISSUE_GPU2019_3901. */
-	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_GPU2019_3901) &&
-	    mmu_cmd == AS_COMMAND_COMMAND_FLUSH_MEM) {
-		ret = apply_hw_issue_GPU2019_3901_wa(kbdev, &mmu_cmd, as->number);
-		if (ret) {
-			dev_warn(
-				kbdev->dev,
-				"Failed to apply WA for HW issue when doing MMU flush op on VA range %llx-%llx for AS %u",
-				op_param->vpfn << PAGE_SHIFT,
-				((op_param->vpfn + op_param->nr) << PAGE_SHIFT) - 1, as->number);
-			/* Continue with the MMU flush operation */
-		}
-	}
-#endif
-
 	ret = write_cmd(kbdev, as->number, mmu_cmd);
 
 	/* Wait for the command to complete */

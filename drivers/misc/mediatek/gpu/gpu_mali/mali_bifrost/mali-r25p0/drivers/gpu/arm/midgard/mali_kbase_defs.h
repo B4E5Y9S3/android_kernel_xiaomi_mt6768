@@ -2139,9 +2139,6 @@ static inline bool kbase_device_is_cpu_coherent(struct kbase_device *kbdev)
  */
 static inline u64 kbase_get_lock_region_min_size_log2(struct kbase_gpu_props const *gpu_props)
 {
-	if (gpu_props->gpu_id.product_model >= GPU_ID_MODEL_MAKE(12, 0))
-		return 12; /* 4 kB */
-
 	return 15; /* 32 kB */
 }
 

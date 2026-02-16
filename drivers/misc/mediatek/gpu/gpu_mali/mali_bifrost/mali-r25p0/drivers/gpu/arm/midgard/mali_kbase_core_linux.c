@@ -3302,34 +3302,9 @@ static DEVICE_ATTR_RW(debug_command);
  */
 static ssize_t gpuinfo_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
-	static const struct gpu_product_id_name {
-		unsigned int id;
-		char *name;
-	} gpu_product_id_names[] = {
-		{ .id = GPU_ID_PRODUCT_TMIX, .name = "Mali-G71" },
-		{ .id = GPU_ID_PRODUCT_THEX, .name = "Mali-G72" },
-		{ .id = GPU_ID_PRODUCT_TSIX, .name = "Mali-G51" },
-		{ .id = GPU_ID_PRODUCT_TNOX, .name = "Mali-G76" },
-		{ .id = GPU_ID_PRODUCT_TDVX, .name = "Mali-G31" },
-		{ .id = GPU_ID_PRODUCT_TGOX, .name = "Mali-G52" },
-		{ .id = GPU_ID_PRODUCT_TTRX, .name = "Mali-G77" },
-		{ .id = GPU_ID_PRODUCT_TBEX, .name = "Mali-G78" },
-		{ .id = GPU_ID_PRODUCT_TBAX, .name = "Mali-G78AE" },
-		{ .id = GPU_ID_PRODUCT_LBEX, .name = "Mali-G68" },
-		{ .id = GPU_ID_PRODUCT_TNAX, .name = "Mali-G57" },
-		{ .id = GPU_ID_PRODUCT_TODX, .name = "Mali-G710" },
-		{ .id = GPU_ID_PRODUCT_LODX, .name = "Mali-G610" },
-		{ .id = GPU_ID_PRODUCT_TGRX, .name = "Mali-G510" },
-		{ .id = GPU_ID_PRODUCT_TVAX, .name = "Mali-G310" },
-		{ .id = GPU_ID_PRODUCT_LTUX, .name = "Mali-G615" },
-		{ .id = GPU_ID_PRODUCT_LTIX, .name = "Mali-G620" },
-		{ .id = GPU_ID_PRODUCT_TKRX, .name = "Mali-G725" },
-		{ .id = GPU_ID_PRODUCT_LKRX, .name = "Mali-G625" },
-	};
-	const char *product_name = "(Unknown Mali GPU)";
+	const char *product_name = "Mali-G52";
 	struct kbase_device *kbdev;
 	u32 product_id;
-	u32 product_model;
 	unsigned int i;
 	struct kbase_gpu_props *gpu_props;
 
@@ -3341,67 +3316,6 @@ static ssize_t gpuinfo_show(struct device *dev, struct device_attribute *attr, c
 
 	gpu_props = &kbdev->gpu_props;
 	product_id = gpu_props->gpu_id.product_id;
-	product_model = gpu_props->gpu_id.product_model;
-
-	for (i = 0; i < ARRAY_SIZE(gpu_product_id_names); ++i) {
-		const struct gpu_product_id_name *p = &gpu_product_id_names[i];
-
-		if (p->id == product_model) {
-			product_name = p->name;
-			break;
-		}
-	}
-
-#if MALI_USE_CSF
-	if (product_model == GPU_ID_PRODUCT_TTUX) {
-		const bool rt_supported = gpu_props->gpu_features.ray_intersection;
-		const u8 nr_cores = gpu_props->num_cores;
-
-		/* Mali-G715-Immortalis if 10 < number of cores with ray tracing supproted.
-		 * Mali-G715 if 10 < number of cores without ray tracing supported.
-		 * Mali-G715 if 7 <= number of cores <= 10 regardless ray tracing.
-		 * Mali-G615 if number of cores < 7.
-		 */
-		if ((nr_cores > 10) && rt_supported)
-			product_name = "Mali-G715-Immortalis";
-		else if (nr_cores >= 7)
-			product_name = "Mali-G715";
-
-		if (nr_cores < 7) {
-			dev_warn(kbdev->dev, "nr_cores(%u) GPU ID must be G615", nr_cores);
-			product_name = "Mali-G615";
-		} else
-			dev_dbg(kbdev->dev, "GPU ID_Name: %s, nr_cores(%u)\n", product_name,
-				nr_cores);
-	}
-
-	if (product_model == GPU_ID_PRODUCT_TTIX) {
-		const bool rt_supported = gpu_props->gpu_features.ray_intersection;
-		const u8 nr_cores = gpu_props->num_cores;
-
-		if ((nr_cores >= 10) && rt_supported)
-			product_name = "Mali-G720-Immortalis";
-		else
-			product_name = (nr_cores >= 6) ? "Mali-G720" : "Mali-G620";
-
-		dev_dbg(kbdev->dev, "GPU ID_Name: %s (ID: 0x%x), nr_cores(%u)\n", product_name,
-			product_id, nr_cores);
-	}
-
-	if (product_model == GPU_ID_PRODUCT_TKRX) {
-		const bool rt_supported = gpu_props->gpu_features.ray_intersection;
-		const u8 nr_cores = gpu_props->num_cores;
-
-		if ((nr_cores >= 10) && rt_supported)
-			product_name = "Mali-G925-Immortalis";
-		else
-			product_name = (nr_cores >= 6) ? "Mali-G725" : "Mali-G625";
-
-		dev_dbg(kbdev->dev, "GPU ID_Name: %s (ID: 0x%x), nr_cores(%u)\n", product_name,
-			product_id, nr_cores);
-	}
-
-#endif /* MALI_USE_CSF */
 
 	return scnprintf(buf, PAGE_SIZE, "%s %d cores r%dp%d 0x%08X\n", product_name,
 			 kbdev->gpu_props.num_cores, gpu_props->gpu_id.version_major,
@@ -4634,25 +4548,6 @@ int kbase_device_backend_init(struct kbase_device *kbdev)
 
 	err = kbase_arbiter_pm_early_init(kbdev);
 	if (err == 0) {
-#if !MALI_USE_CSF
-		u32 product_model;
-
-		/*
-		 * Attempt to obtain and parse gpu_id in the event an external AW module
-		 * is used for messaging. We should have access to GPU at this point.
-		 */
-		if (kbdev->gpu_props.gpu_id.arch_major == 0)
-			kbase_gpuprops_parse_gpu_id(&kbdev->gpu_props.gpu_id,
-						    kbase_reg_get_gpu_id(kbdev));
-
-		product_model = kbdev->gpu_props.gpu_id.product_model;
-		if (product_model != GPU_ID_PRODUCT_TGOX && product_model != GPU_ID_PRODUCT_TNOX &&
-		    product_model != GPU_ID_PRODUCT_TBAX) {
-			kbase_arbiter_pm_early_term(kbdev);
-			dev_dbg(kbdev->dev, "GPU platform not suitable for arbitration");
-			return -EPERM;
-		}
-#endif /* !MALI_USE_CSF */
 		dev_info(kbdev->dev, "Arbitration interface enabled");
 	}
 #endif /* defined(CONFIG_MALI_ARBITER_SUPPORT) && defined(CONFIG_OF) */
@@ -5119,7 +5014,7 @@ static struct dentry *init_debugfs(struct kbase_device *kbdev)
 	if (IS_ERR_OR_NULL(dentry))
 		return dentry;
 
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_PROTECTED_DEBUG_MODE)) {
+	if (true) {
 		dentry = debugfs_create_file("protected_debug_mode", 0444,
 					     kbdev->mali_debugfs_directory, kbdev,
 					     &fops_protected_debug_mode);
@@ -5192,10 +5087,6 @@ void kbase_device_debugfs_term(struct kbase_device *kbdev)
 static u32 kbase_device_normalize_coherency_bitmap(struct kbase_device *kbdev)
 {
 	u32 supported_coherency_bitmap = kbdev->gpu_props.coherency_mode;
-
-	if ((kbdev->gpu_props.gpu_id.product_model == GPU_ID_PRODUCT_TMIX) &&
-	    (supported_coherency_bitmap == COHERENCY_FEATURE_BIT(COHERENCY_ACE)))
-		supported_coherency_bitmap |= COHERENCY_FEATURE_BIT(COHERENCY_ACE_LITE);
 
 	return supported_coherency_bitmap;
 }

@@ -46,7 +46,7 @@ static inline bool timer_callback_should_run(struct kbase_device *kbdev, int nr_
 	}
 #endif /* CONFIG_MALI_DEBUG */
 
-	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_9435)) {
+	if (true) {
 		/* Timeouts would have to be 4x longer (due to micro-
 		 * architectural design) to support OpenCL conformance tests, so
 		 * only run the timer when there's:
@@ -64,10 +64,6 @@ static inline bool timer_callback_should_run(struct kbase_device *kbdev, int nr_
 
 			return (bool)(nr_compute_ctxs >= 2 || nr_noncompute_ctxs > 0);
 		}
-	} else {
-		/* Run the timer callback whenever you have at least 1 context
-		 */
-		return (bool)(nr_running_ctxs > 0);
 	}
 }
 

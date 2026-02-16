@@ -613,63 +613,9 @@ static void kbase_pm_trigger_hwcnt_disable(struct kbase_device *kbdev)
 	}
 }
 
-static void kbase_pm_l2_config_override(struct kbase_device *kbdev)
+static inline void kbase_pm_l2_config_override(struct kbase_device *kbdev)
 {
-	u32 val;
-
-	/*
-	 * Skip if it is not supported
-	 */
-	if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_L2_CONFIG))
-		return;
-
-#if MALI_USE_CSF
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_PBHA_HWU)) {
-		val = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(L2_CONFIG));
-		kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(L2_CONFIG),
-				  L2_CONFIG_PBHA_HWU_SET(val, kbdev->pbha_propagate_bits));
-	}
-#endif /* MALI_USE_CSF */
-
-	/*
-	 * Skip if size and hash are not given explicitly,
-	 * which means default values are used.
-	 */
-	if ((kbdev->l2_size_override == 0) && (kbdev->l2_hash_override == 0) &&
-	    (!kbdev->l2_hash_values_override))
-		return;
-
-	val = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(L2_CONFIG));
-
-	if (kbdev->l2_size_override) {
-		val &= ~L2_CONFIG_SIZE_MASK;
-		val |= (kbdev->l2_size_override << L2_CONFIG_SIZE_SHIFT);
-	}
-
-	if (kbdev->l2_hash_override) {
-		WARN_ON(kbase_hw_has_l2_slice_hash_feature(kbdev));
-		val &= ~L2_CONFIG_HASH_MASK;
-		val |= (kbdev->l2_hash_override << L2_CONFIG_HASH_SHIFT);
-	} else if (kbdev->l2_hash_values_override) {
-#if MALI_USE_CSF
-		uint i;
-
-		WARN_ON(!kbase_hw_has_l2_slice_hash_feature(kbdev));
-
-		val &= ~L2_CONFIG_L2_SLICE_HASH_ENABLE_MASK;
-		val |= (0x1 << L2_CONFIG_L2_SLICE_HASH_ENABLE_SHIFT);
-		for (i = 0; i < GPU_L2_SLICE_HASH_COUNT; i++) {
-			/* L2_SLICE_HASH and ASN_HASH alias each other */
-			dev_dbg(kbdev->dev, "Program 0x%x to ASN_HASH[%u]\n",
-				kbdev->l2_hash_values[i], i);
-			kbase_reg_write32(kbdev, GPU_L2_SLICE_HASH_OFFSET(i),
-					  kbdev->l2_hash_values[i]);
-		}
-#endif /* MALI_USE_CSF */
-	}
-
-	dev_dbg(kbdev->dev, "Program 0x%x to L2_CONFIG\n", val);
-	kbase_reg_write32(kbdev, GPU_CONTROL_ENUM(L2_CONFIG), val);
+	return;
 }
 
 static void kbase_pm_control_gpu_clock(struct kbase_device *kbdev)
@@ -807,9 +753,6 @@ static void wait_mcu_as_inactive(struct kbase_device *kbdev)
 	const u32 timeout_us =
 		kbase_get_timeout_ms(kbdev, KBASE_AS_INACTIVE_TIMEOUT) * USEC_PER_MSEC;
 	lockdep_assert_held(&kbdev->hwaccess_lock);
-
-	if (!kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TURSEHW_2716))
-		return;
 
 	/* Wait for the AS_ACTIVE_INT bit to become 0 for the AS used by MCU FW */
 	err = kbase_reg_poll32_timeout(kbdev, MMU_AS_OFFSET(MCU_AS_NR, STATUS), val,
@@ -1232,12 +1175,7 @@ static int kbase_pm_mcu_update_state(struct kbase_device *kbdev)
 			break;
 
 		case KBASE_MCU_POWER_DOWN:
-			if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TITANHW_2922)) {
-				if (!kbdev->csf.firmware_hctl_core_pwr)
-					kbasep_pm_toggle_power_interrupt(kbdev, true);
-				backend->mcu_state = KBASE_MCU_OFF;
-				backend->l2_force_off_after_mcu_halt = true;
-			} else {
+			if (true) {
 				kbase_csf_firmware_disable_mcu(kbdev);
 				backend->mcu_state = KBASE_MCU_PEND_OFF;
 			}
@@ -3140,28 +3078,13 @@ static int kbase_set_gpu_quirks(struct kbase_device *kbdev)
 #else
 	u32 hw_quirks_gpu = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(JM_CONFIG));
 
-	if (kbdev->gpu_props.gpu_id.product_model == GPU_ID_PRODUCT_TMIX) {
-		/* Only for tMIx */
-		u32 coherency_features;
-
-		coherency_features = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(COHERENCY_FEATURES));
-
-		/* (COHERENCY_ACE_LITE | COHERENCY_ACE) was incorrectly
-		 * documented for tMIx so force correct value here.
-		 */
-		if (coherency_features == COHERENCY_FEATURE_BIT(COHERENCY_ACE)) {
-			hw_quirks_gpu |= (COHERENCY_ACE_LITE | COHERENCY_ACE)
-					 << JM_FORCE_COHERENCY_FEATURES_SHIFT;
-		}
-	}
-
 	if (kbase_is_gpu_removed(kbdev))
 		return -EIO;
 
 	kbdev->hw_quirks_gpu = hw_quirks_gpu;
 
 #endif /* !MALI_USE_CSF */
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_IDVS_GROUP_SIZE)) {
+	if (true) {
 		u32 default_idvs_group_size = 0xF;
 		u32 group_size = 0;
 
@@ -3195,10 +3118,7 @@ static int kbase_set_sc_quirks(struct kbase_device *kbdev)
 	if (kbase_is_gpu_removed(kbdev))
 		return -EIO;
 
-	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TTRX_2968_TTRX_3162))
-		hw_quirks_sc |= SC_VAR_ALGORITHM;
-
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_TLS_HASHING))
+	if (true)
 		hw_quirks_sc |= SC_TLS_HASH_ENABLE;
 
 	kbdev->hw_quirks_sc = hw_quirks_sc;
@@ -3215,10 +3135,6 @@ static int kbase_set_tiler_quirks(struct kbase_device *kbdev)
 
 	if (kbase_is_gpu_removed(kbdev))
 		return -EIO;
-
-	/* Set tiler clock gate override if required */
-	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_T76X_3953))
-		hw_quirks_tiler |= TC_CLOCK_GATE_OVERRIDE;
 
 	kbdev->hw_quirks_tiler = hw_quirks_tiler;
 

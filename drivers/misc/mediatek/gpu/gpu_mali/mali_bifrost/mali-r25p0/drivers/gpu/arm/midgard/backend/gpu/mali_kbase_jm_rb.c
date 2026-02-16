@@ -425,7 +425,7 @@ static void kbase_gpu_release_atom(struct kbase_device *kbdev, struct kbase_jd_a
 			}
 		}
 
-		if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TGOX_R1_1234)) {
+		if (true) {
 			if (katom->atom_flags & KBASE_KATOM_FLAG_HOLDING_L2_REF_PROT) {
 				kbase_pm_protected_l2_override(kbdev, false);
 				katom->atom_flags &= ~KBASE_KATOM_FLAG_HOLDING_L2_REF_PROT;
@@ -698,7 +698,7 @@ static int kbase_jm_enter_protected_mode(struct kbase_device *kbdev, struct kbas
 
 		kbase_pm_protected_entry_override_disable(kbdev);
 
-		if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TGOX_R1_1234)) {
+		if (true) {
 			/*
 			 * Power on L2 caches; this will also result in the
 			 * correct value written to coherency enable register.
@@ -714,13 +714,13 @@ static int kbase_jm_enter_protected_mode(struct kbase_device *kbdev, struct kbas
 
 		katom[idx]->protected_state.enter = KBASE_ATOM_ENTER_PROTECTED_FINISHED;
 
-		if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TGOX_R1_1234))
+		if (true)
 			return -EAGAIN;
 
 		/* ***TRANSITION TO HIGHER STATE*** */
 		fallthrough;
 	case KBASE_ATOM_ENTER_PROTECTED_FINISHED:
-		if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TGOX_R1_1234)) {
+		if (true) {
 			/*
 			 * Check that L2 caches are powered and, if so,
 			 * enter protected mode.
@@ -746,11 +746,6 @@ static int kbase_jm_enter_protected_mode(struct kbase_device *kbdev, struct kbas
 				 */
 				return -EAGAIN;
 			}
-		} else {
-			err = kbase_jm_protected_entry(kbdev, katom, idx, js);
-
-			if (err)
-				return err;
 		}
 	}
 
@@ -1231,17 +1226,6 @@ void kbase_gpu_complete_hw(struct kbase_device *kbdev, unsigned int js, u32 comp
 		(void *)katom, completion_code, job_tail, js);
 
 	lockdep_assert_held(&kbdev->hwaccess_lock);
-
-	/*
-	 * When a hard-stop is followed close after a soft-stop, the completion
-	 * code may be set to STOPPED, even though the job is terminated
-	 */
-	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TMIX_8438)) {
-		if (completion_code == BASE_JD_EVENT_STOPPED &&
-		    (katom->atom_flags & KBASE_KATOM_FLAG_BEEN_HARD_STOPPED)) {
-			completion_code = BASE_JD_EVENT_TERMINATED;
-		}
-	}
 
 	if ((katom->core_req & BASE_JD_REQ_SKIP_CACHE_END) &&
 	    completion_code != BASE_JD_EVENT_DONE && !(completion_code & BASE_JD_SW_EVENT)) {

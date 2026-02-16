@@ -154,7 +154,7 @@ static void kbasep_mem_page_size_init(struct kbase_device *kbdev)
 
 	switch (large_page_conf) {
 	case LARGE_PAGE_AUTO: {
-		if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_LARGE_PAGE_ALLOC))
+		if (false)
 			static_branch_inc(&large_pages_static_key);
 		dev_info(kbdev->dev, "Large page allocation set to %s after hardware feature check",
 			 static_branch_unlikely(&large_pages_static_key) ? "true" : "false");
@@ -162,11 +162,9 @@ static void kbasep_mem_page_size_init(struct kbase_device *kbdev)
 	}
 	case LARGE_PAGE_ON: {
 		static_branch_inc(&large_pages_static_key);
-		if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_LARGE_PAGE_ALLOC))
+		if (true)
 			dev_warn(kbdev->dev,
 				 "Enabling large page allocations on unsupporting GPU!");
-		else
-			dev_info(kbdev->dev, "Large page allocation override: turned on\n");
 		break;
 	}
 	case LARGE_PAGE_OFF: {

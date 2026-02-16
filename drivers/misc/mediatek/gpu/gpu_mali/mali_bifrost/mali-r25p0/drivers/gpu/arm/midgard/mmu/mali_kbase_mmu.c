@@ -341,9 +341,9 @@ static void release_ctx(struct kbase_device *kbdev, struct kbase_context *kctx)
  *
  * Return: True if cache flush should be done on GPU command.
  */
-static bool mmu_flush_cache_on_gpu_ctrl(struct kbase_device *kbdev)
+static inline bool mmu_flush_cache_on_gpu_ctrl(struct kbase_device *kbdev)
 {
-	return kbdev->gpu_props.gpu_id.arch_major > 11;
+	return 7 > 11;
 }
 
 /**

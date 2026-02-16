@@ -227,8 +227,7 @@ void kbase_gpu_interrupt(struct kbase_device *kbdev, u32 val)
 		 * machine needs to be re-invoked to proceed with powering down
 		 * cores.
 		 */
-		if (kbdev->pm.backend.l2_always_on ||
-		    kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TTRX_921))
+		if (true)
 			kbase_pm_power_changed(kbdev);
 	}
 

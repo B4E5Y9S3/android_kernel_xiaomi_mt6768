@@ -146,7 +146,7 @@ bool kbasep_pbha_supported(struct kbase_device *kbdev)
 int kbase_pbha_record_settings(struct kbase_device *kbdev, bool runtime, unsigned int id,
 			       unsigned int read_setting, unsigned int write_setting)
 {
-	struct settings_status const valid = settings_valid(kbdev->gpu_props.gpu_id.product_model,
+	struct settings_status const valid = settings_valid(GPU_ID_PRODUCT_TGOX,
 							    id, read_setting, write_setting);
 
 	if (valid.overall) {
@@ -274,40 +274,9 @@ static int kbase_pbha_read_int_id_override_property(struct kbase_device *kbdev,
 	return 0;
 }
 
-static int kbase_pbha_read_propagate_bits_property(struct kbase_device *kbdev,
+static inline int kbase_pbha_read_propagate_bits_property(struct kbase_device *kbdev,
 						   const struct device_node *pbha_node)
 {
-	u8 bits = 0;
-	int err;
-
-	if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_PBHA_HWU))
-		return 0;
-
-	err = of_property_read_u8(pbha_node, "propagate-bits", &bits);
-
-	if (err == -EINVAL) {
-		err = of_property_read_u8(pbha_node, "propagate_bits", &bits);
-	}
-
-	if (err < 0) {
-		if (err != -EINVAL) {
-			dev_err(kbdev->dev,
-				"DTB value for propagate_bits is improperly formed (err=%d)\n",
-				err);
-			return err;
-		} else {
-			/* Property does not exist */
-			kbdev->pbha_propagate_bits = 0;
-			return 0;
-		}
-	}
-
-	if (bits > (L2_CONFIG_PBHA_HWU_MASK >> L2_CONFIG_PBHA_HWU_SHIFT)) {
-		dev_err(kbdev->dev, "Bad DTB value for propagate_bits: 0x%x\n", bits);
-		return -EINVAL;
-	}
-
-	kbdev->pbha_propagate_bits = bits;
 	return 0;
 }
 #endif /* MALI_USE_CSF */

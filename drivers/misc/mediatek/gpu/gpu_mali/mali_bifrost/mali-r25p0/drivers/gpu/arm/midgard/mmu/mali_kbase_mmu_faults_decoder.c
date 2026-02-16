@@ -37,21 +37,21 @@
 unsigned int fault_source_id_internal_requester_get(struct kbase_device *kbdev,
 						    unsigned int source_id)
 {
-	if (kbdev->gpu_props.gpu_id.product_model < GPU_ID_MODEL_MAKE(14, 0))
+	if (GPU_ID_PRODUCT_TGOX < GPU_ID_MODEL_MAKE(14, 0))
 		return ((source_id >> 4) & 0xF);
-	else
-		return (source_id & 0x3F);
+	/* else
+		return (source_id & 0x3F); */
 }
 
 static inline const char *source_id_enc_core_type_get_str(struct kbase_device *kbdev,
 							  unsigned int source_id)
 {
-	if (kbdev->gpu_props.gpu_id.product_model < GPU_ID_MODEL_MAKE(14, 0))
+	if (GPU_ID_PRODUCT_TGOX < GPU_ID_MODEL_MAKE(14, 0))
 		return decode_fault_source_core_id_t_core_type(
 			FAULT_SOURCE_ID_CORE_ID_GET(source_id), kbdev->gpu_props.gpu_id.arch_id);
-	else
+	/* else
 		return decode_fault_source_core_type_t_name(
-			FAULT_SOURCE_ID_CORE_TYPE_GET(source_id), kbdev->gpu_props.gpu_id.arch_id);
+			FAULT_SOURCE_ID_CORE_TYPE_GET(source_id), kbdev->gpu_props.gpu_id.arch_id); */
 }
 const char *fault_source_id_internal_requester_get_str(struct kbase_device *kbdev,
 						       unsigned int source_id,
@@ -59,7 +59,7 @@ const char *fault_source_id_internal_requester_get_str(struct kbase_device *kbde
 {
 	unsigned int ir = fault_source_id_internal_requester_get(kbdev, source_id);
 	bool older_source_id_fmt =
-		(kbdev->gpu_props.gpu_id.product_model < GPU_ID_MODEL_MAKE(14, 0));
+		(GPU_ID_PRODUCT_TGOX < GPU_ID_MODEL_MAKE(14, 0));
 	unsigned int utlb_id = 0;
 
 	if (older_source_id_fmt)
@@ -114,11 +114,11 @@ const char *fault_source_id_internal_requester_get_str(struct kbase_device *kbde
 const char *fault_source_id_core_type_description_get(struct kbase_device *kbdev,
 						      unsigned int source_id)
 {
-	if (kbdev->gpu_props.gpu_id.product_model < GPU_ID_MODEL_MAKE(14, 0)) {
+	if (GPU_ID_PRODUCT_TGOX < GPU_ID_MODEL_MAKE(14, 0)) {
 		return decode_fault_source_core_id_t_desc(FAULT_SOURCE_ID_CORE_ID_GET(source_id),
 							  kbdev->gpu_props.gpu_id.arch_id);
-	} else {
+	} /* else {
 		return decode_fault_source_core_type_t_desc(
 			FAULT_SOURCE_ID_CORE_TYPE_GET(source_id), kbdev->gpu_props.gpu_id.arch_id);
-	}
+	} */
 }

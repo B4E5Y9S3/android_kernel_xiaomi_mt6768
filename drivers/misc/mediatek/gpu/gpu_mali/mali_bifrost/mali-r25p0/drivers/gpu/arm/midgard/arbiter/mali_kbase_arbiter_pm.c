@@ -416,7 +416,7 @@ void kbase_arbiter_pm_vm_stopped(struct kbase_device *kbdev)
 	 * Interrupts are not released for PTM as it has dedicated IRQs per VM.
 	 */
 	if (arb_vm_state->interrupts_installed &&
-	    kbdev->gpu_props.gpu_id.product_model != GPU_ID_PRODUCT_TBAX) {
+	    true) {
 		arb_vm_state->interrupts_installed = false;
 		kbase_release_interrupts(kbdev);
 	}
@@ -537,7 +537,7 @@ static void kbase_arbiter_pm_vm_gpu_start(struct kbase_device *kbdev)
 		 * Xen requirements. Interrupts are not released on VM_STOP for
 		 * PTM as it has dedicated IRQs per VM.
 		 */
-		if (kbdev->gpu_props.gpu_id.product_model != GPU_ID_PRODUCT_TBAX) {
+		if (true) {
 			arb_vm_state->interrupts_installed = true;
 			kbase_install_interrupts(kbdev);
 		}

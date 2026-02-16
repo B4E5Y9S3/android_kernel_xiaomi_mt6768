@@ -119,7 +119,7 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx, struct kbase_as
 		const u32 access_type = AS_FAULTSTATUS_ACCESS_TYPE_GET(status);
 		const u32 source_id = AS_FAULTSTATUS_SOURCE_ID_GET(status);
 		/* terminal fault, print info about the fault */
-		if (kbdev->gpu_props.gpu_id.product_model < GPU_ID_MODEL_MAKE(9, 0)) {
+		if (GPU_ID_PRODUCT_TGOX < GPU_ID_MODEL_MAKE(9, 0)) {
 			dev_err(kbdev->dev,
 				"Unhandled Page fault in AS%u at VA 0x%016llX\n"
 				"Reason: %s\n"
@@ -130,7 +130,7 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx, struct kbase_as
 				as_no, fault->addr, reason_str, status, exception_type,
 				kbase_gpu_exception_name(exception_type), access_type,
 				kbase_gpu_access_type_name(status), kctx->pid);
-		} else {
+		} /* else {
 			dev_err(kbdev->dev,
 				"Unhandled Page fault in AS%u at VA 0x%016llX\n"
 				"Reason: %s\n"
@@ -149,7 +149,7 @@ void kbase_mmu_report_fault_and_kill(struct kbase_context *kctx, struct kbase_as
 				fault_source_id_internal_requester_get_str(kbdev, source_id,
 									   access_type),
 				kctx->pid);
-		}
+		} */
 	}
 
 	/* hardware counters dump fault handling */
@@ -285,7 +285,7 @@ static void validate_protected_page_fault(struct kbase_device *kbdev)
 	 */
 	u32 protected_debug_mode = 0;
 
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_PROTECTED_DEBUG_MODE)) {
+	if (true) {
 		protected_debug_mode = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(GPU_STATUS)) &
 				       GPU_STATUS_GPU_DBG_ENABLED;
 	}

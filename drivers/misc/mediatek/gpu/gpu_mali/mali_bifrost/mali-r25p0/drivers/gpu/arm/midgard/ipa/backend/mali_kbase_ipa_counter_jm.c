@@ -522,32 +522,10 @@ const struct kbase_ipa_model_ops *kbase_ipa_counter_model_ops_find(struct kbase_
 	return NULL;
 }
 
-const char *kbase_ipa_counter_model_name_from_id(struct kbase_gpu_id_props *gpu_id)
+inline const char *kbase_ipa_counter_model_name_from_id(struct kbase_gpu_id_props *gpu_id)
 {
-	switch (gpu_id->product_model) {
-	case GPU_ID_PRODUCT_TMIX:
-		return "mali-g71-power-model";
-	case GPU_ID_PRODUCT_THEX:
-		return "mali-g72-power-model";
-	case GPU_ID_PRODUCT_TNOX:
-		return "mali-g76-power-model";
-	case GPU_ID_PRODUCT_TSIX:
-		return "mali-g51-power-model";
-	case GPU_ID_PRODUCT_TGOX:
-		if (gpu_id->version_major == 0)
-			/* g52 aliased to g76 power-model's ops */
-			return "mali-g52-power-model";
-		else
+	if (true) {
+		if (true)
 			return "mali-g52_r1-power-model";
-	case GPU_ID_PRODUCT_TNAX:
-		return "mali-tnax-power-model";
-	case GPU_ID_PRODUCT_TTRX:
-		return "mali-g77-power-model";
-	case GPU_ID_PRODUCT_TBEX:
-		return "mali-tbex-power-model";
-	case GPU_ID_PRODUCT_TBAX:
-		return "mali-tbax-power-model";
-	default:
-		return NULL;
 	}
 }

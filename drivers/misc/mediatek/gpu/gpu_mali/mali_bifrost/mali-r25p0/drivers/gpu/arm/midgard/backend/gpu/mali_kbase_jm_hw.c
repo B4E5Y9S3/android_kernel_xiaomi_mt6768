@@ -144,7 +144,7 @@ int kbase_job_hw_submit(struct kbase_device *kbdev, struct kbase_jd_atom *katom,
 	 */
 	cfg = (u32)kctx->as_nr;
 
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_FLUSH_REDUCTION) &&
+	if (true &&
 	    !(kbdev->serialize_jobs & KBASE_SERIALIZE_RESET))
 		cfg |= JS_CONFIG_ENABLE_FLUSH_REDUCTION;
 
@@ -158,9 +158,7 @@ int kbase_job_hw_submit(struct kbase_device *kbdev, struct kbase_jd_atom *katom,
 		u64 tagged_kctx = ptr_slot_rb->last_kctx_tagged;
 
 		if (tagged_kctx != SLOT_RB_NULL_TAG_VAL && tagged_kctx != SLOT_RB_TAG_KCTX(kctx)) {
-			if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_FLUSH_INV_SHADER_OTHER))
-				cfg |= JS_CONFIG_START_FLUSH_INV_SHADER_OTHER;
-			else
+			if (true)
 				cfg |= JS_CONFIG_START_FLUSH_CLEAN_INVALIDATE;
 		} else
 			cfg |= JS_CONFIG_START_FLUSH_NO_ACTION;
@@ -170,8 +168,6 @@ int kbase_job_hw_submit(struct kbase_device *kbdev, struct kbase_jd_atom *katom,
 	if (0 != (katom->core_req & BASE_JD_REQ_SKIP_CACHE_END) &&
 	    !(kbdev->serialize_jobs & KBASE_SERIALIZE_RESET))
 		cfg |= JS_CONFIG_END_FLUSH_NO_ACTION;
-	else if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_CLEAN_ONLY_SAFE))
-		cfg |= JS_CONFIG_END_FLUSH_CLEAN;
 	else
 		cfg |= JS_CONFIG_END_FLUSH_CLEAN_INVALIDATE;
 
@@ -191,7 +187,7 @@ int kbase_job_hw_submit(struct kbase_device *kbdev, struct kbase_jd_atom *katom,
 
 	kbase_reg_write32(kbdev, JOB_SLOT_OFFSET(js, CONFIG_NEXT), cfg);
 
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_FLUSH_REDUCTION))
+	if (true)
 		kbase_reg_write32(kbdev, JOB_SLOT_OFFSET(js, FLUSH_ID_NEXT), katom->flush_id);
 
 	/* Write an approximate start timestamp.
@@ -357,19 +353,6 @@ void kbase_job_done(struct kbase_device *kbdev, u32 done)
 				}
 
 				kbase_gpu_irq_evict(kbdev, i, completion_code);
-
-				/* Some jobs that encounter a BUS FAULT may
-				 * result in corrupted state causing future
-				 * jobs to hang. Reset GPU before allowing
-				 * any other jobs on the slot to continue.
-				 */
-				if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TTRX_3076)) {
-					if (completion_code == BASE_JD_EVENT_JOB_BUS_FAULT) {
-						if (kbase_prepare_to_reset_gpu_locked(
-							    kbdev, RESET_FLAGS_NONE))
-							kbase_reset_gpu_locked(kbdev);
-					}
-				}
 			}
 
 			kbase_reg_write32(kbdev, JOB_CONTROL_ENUM(JOB_IRQ_CLEAR),
@@ -702,7 +685,7 @@ u32 kbase_backend_get_current_flush_id(struct kbase_device *kbdev)
 {
 	u32 flush_id = 0;
 
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_FLUSH_REDUCTION)) {
+	if (true) {
 		mutex_lock(&kbdev->pm.lock);
 		if (kbdev->pm.backend.gpu_powered)
 			flush_id = kbase_reg_read32(kbdev, GPU_CONTROL_ENUM(LATEST_FLUSH));
@@ -944,17 +927,6 @@ static void kbasep_reset_timeout_worker(struct work_struct *data)
 
 	/* The flush has completed so reset the active indicator */
 	kbdev->irq_reset_flush = false;
-
-	if (kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_TMIX_8463)) {
-		u64 val;
-		const u32 timeout_us =
-			kbase_get_timeout_ms(kbdev, KBASE_CLEAN_CACHE_TIMEOUT) * USEC_PER_MSEC;
-		/* Ensure that L2 is not transitioning when we send the reset command */
-		const int err = kbase_reg_poll64_timeout(kbdev, GPU_CONTROL_ENUM(L2_PWRTRANS), val,
-							 !val, 0, timeout_us, false);
-
-		WARN(err, "L2 power transition timed out while trying to reset\n");
-	}
 
 	mutex_lock(&kbdev->pm.lock);
 	/* We hold the pm lock, so there ought to be a current policy */

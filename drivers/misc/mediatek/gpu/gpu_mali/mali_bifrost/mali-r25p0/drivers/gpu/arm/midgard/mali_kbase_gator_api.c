@@ -129,51 +129,7 @@ struct kbase_gator_hwcnt_handles *kbase_gator_hwcnt_init(struct kbase_gator_hwcn
 	in_out_info->nr_core_groups = hand->kbdev->gpu_props.num_core_groups;
 	in_out_info->gpu_id = hand->kbdev->gpu_props.gpu_id.product_model;
 
-	/* If we are using a v4 device (Mali-T6xx or Mali-T72x) */
-	/// @{ MTK
-	//  r25p0 remove BASE_HW_FEATURE_V4, so remove this section
-	#if 0
-	if (kbase_hw_has_feature(hand->kbdev, BASE_HW_FEATURE_V4)) {
-		uint32_t cg, j;
-		uint64_t core_mask;
-
-		/* There are 8 hardware counters blocks per core group */
-		in_out_info->hwc_layout = kmalloc(sizeof(enum hwc_type) *
-			MALI_MAX_NUM_BLOCKS_PER_GROUP *
-			in_out_info->nr_core_groups, GFP_KERNEL);
-
-		if (!in_out_info->hwc_layout)
-			goto free_dump_buf;
-
-		dump_size = in_out_info->nr_core_groups *
-			MALI_MAX_NUM_BLOCKS_PER_GROUP *
-			MALI_COUNTERS_PER_BLOCK *
-			MALI_BYTES_PER_COUNTER;
-
-		for (cg = 0; cg < in_out_info->nr_core_groups; cg++) {
-			core_mask = hand->kbdev->gpu_props.props.coherency_info.group[cg].core_mask;
-
-			for (j = 0; j < MALI_MAX_CORES_PER_GROUP; j++) {
-				if (core_mask & (1u << j))
-					in_out_info->hwc_layout[i++] = SHADER_BLOCK;
-				else
-					in_out_info->hwc_layout[i++] = RESERVED_BLOCK;
-			}
-
-			in_out_info->hwc_layout[i++] = TILER_BLOCK;
-			in_out_info->hwc_layout[i++] = MMU_L2_BLOCK;
-
-			in_out_info->hwc_layout[i++] = RESERVED_BLOCK;
-
-			if (0 == cg)
-				in_out_info->hwc_layout[i++] = JM_BLOCK;
-			else
-				in_out_info->hwc_layout[i++] = RESERVED_BLOCK;
-		}
-	/* If we are using any other device */
-	} else 
-	#endif
-	{
+	if (true) {
 		uint32_t nr_l2, nr_sc_bits, j;
 		uint64_t core_mask;
 

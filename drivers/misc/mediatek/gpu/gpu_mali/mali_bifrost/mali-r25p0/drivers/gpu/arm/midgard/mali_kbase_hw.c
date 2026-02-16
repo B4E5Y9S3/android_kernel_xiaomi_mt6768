@@ -33,79 +33,12 @@ void kbase_hw_set_features_mask(struct kbase_device *kbdev)
 {
 	const enum base_hw_feature *features;
 
-	switch (kbdev->gpu_props.gpu_id.product_model) {
-	case GPU_ID_PRODUCT_TMIX:
-		features = base_hw_features_tMIx;
-		break;
-	case GPU_ID_PRODUCT_THEX:
-		features = base_hw_features_tHEx;
-		break;
-	case GPU_ID_PRODUCT_TSIX:
-		features = base_hw_features_tSIx;
-		break;
-	case GPU_ID_PRODUCT_TDVX:
-		features = base_hw_features_tDVx;
-		break;
-	case GPU_ID_PRODUCT_TNOX:
-		features = base_hw_features_tNOx;
-		break;
-	case GPU_ID_PRODUCT_TGOX:
+	if (true) {
 		features = base_hw_features_tGOx;
-		break;
-	case GPU_ID_PRODUCT_TTRX:
-		features = base_hw_features_tTRx;
-		break;
-	case GPU_ID_PRODUCT_TNAX:
-		features = base_hw_features_tNAx;
-		break;
-	case GPU_ID_PRODUCT_LBEX:
-	case GPU_ID_PRODUCT_TBEX:
-		features = base_hw_features_tBEx;
-		break;
-	case GPU_ID_PRODUCT_TBAX:
-		features = base_hw_features_tBAx;
-		break;
-	case GPU_ID_PRODUCT_TODX:
-	case GPU_ID_PRODUCT_LODX:
-		features = base_hw_features_tODx;
-		break;
-	case GPU_ID_PRODUCT_TGRX:
-		features = base_hw_features_tGRx;
-		break;
-	case GPU_ID_PRODUCT_TVAX:
-		features = base_hw_features_tVAx;
-		break;
-	case GPU_ID_PRODUCT_TTUX:
-	case GPU_ID_PRODUCT_LTUX:
-		features = base_hw_features_tTUx;
-		break;
-	case GPU_ID_PRODUCT_TTIX:
-	case GPU_ID_PRODUCT_LTIX:
-		features = base_hw_features_tTIx;
-		break;
-	case GPU_ID_PRODUCT_TKRX:
-	case GPU_ID_PRODUCT_LKRX:
-		features = base_hw_features_tKRx;
-		break;
-	default:
-		features = base_hw_features_generic;
-		break;
 	}
 
 	for (; *features != BASE_HW_FEATURE_END; features++)
 		set_bit(*features, &kbdev->hw_features_mask[0]);
-
-#if defined(CONFIG_MALI_VECTOR_DUMP)
-	/* When dumping is enabled, need to disable flush reduction optimization
-	 * for GPUs on which it is safe to have only cache clean operation at
-	 * the end of job chain.
-	 * This is required to make vector dump work. There is some discrepancy
-	 * in the implementation of flush reduction optimization due to
-	 * unclear or ambiguous ARCH spec.
-	 */
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_CLEAN_ONLY_SAFE))
-		clear_bit(BASE_HW_FEATURE_FLUSH_REDUCTION, &kbdev->hw_features_mask[0]);
-#endif
 }
 
 /**
@@ -272,7 +205,7 @@ static const enum base_hw_issue *kbase_hw_get_issues_for_new_id(struct kbase_dev
 
 	/* Stop when we reach the end of the products array. */
 	for (p = 0; p < ARRAY_SIZE(base_hw_products); ++p) {
-		if (gpu_id->product_model == base_hw_products[p].product_model) {
+		if (gpu_id->product_model == GPU_ID_PRODUCT_TGOX) {
 			product = &base_hw_products[p];
 			break;
 		}
@@ -350,78 +283,15 @@ int kbase_hw_set_issues_mask(struct kbase_device *kbdev)
 	gpu_id = &kbdev->gpu_props.gpu_id;
 	impl_tech = kbdev->gpu_props.impl_tech;
 
-	if (impl_tech != THREAD_FEATURES_IMPLEMENTATION_TECHNOLOGY_SOFTWARE) {
-		issues = kbase_hw_get_issues_for_new_id(kbdev);
-		if (issues == NULL) {
-			dev_err(kbdev->dev, "HW product - Unknown GPU Product ID %x",
-				gpu_id->product_id);
-			return -EINVAL;
-		}
-	} else {
+	if (true) {
 		/* Software model */
-		switch (gpu_id->product_model) {
-		case GPU_ID_PRODUCT_TMIX:
-			issues = base_hw_issues_model_tMIx;
-			break;
-		case GPU_ID_PRODUCT_THEX:
-			issues = base_hw_issues_model_tHEx;
-			break;
-		case GPU_ID_PRODUCT_TSIX:
-			issues = base_hw_issues_model_tSIx;
-			break;
-		case GPU_ID_PRODUCT_TDVX:
-			issues = base_hw_issues_model_tDVx;
-			break;
-		case GPU_ID_PRODUCT_TNOX:
-			issues = base_hw_issues_model_tNOx;
-			break;
-		case GPU_ID_PRODUCT_TGOX:
+		if (true) {
 			issues = base_hw_issues_model_tGOx;
-			break;
-		case GPU_ID_PRODUCT_TTRX:
-			issues = base_hw_issues_model_tTRx;
-			break;
-		case GPU_ID_PRODUCT_TNAX:
-			issues = base_hw_issues_model_tNAx;
-			break;
-		case GPU_ID_PRODUCT_LBEX:
-		case GPU_ID_PRODUCT_TBEX:
-			issues = base_hw_issues_model_tBEx;
-			break;
-		case GPU_ID_PRODUCT_TBAX:
-			issues = base_hw_issues_model_tBAx;
-			break;
-		case GPU_ID_PRODUCT_TODX:
-		case GPU_ID_PRODUCT_LODX:
-			issues = base_hw_issues_model_tODx;
-			break;
-		case GPU_ID_PRODUCT_TGRX:
-			issues = base_hw_issues_model_tGRx;
-			break;
-		case GPU_ID_PRODUCT_TVAX:
-			issues = base_hw_issues_model_tVAx;
-			break;
-		case GPU_ID_PRODUCT_TTUX:
-		case GPU_ID_PRODUCT_LTUX:
-			issues = base_hw_issues_model_tTUx;
-			break;
-		case GPU_ID_PRODUCT_TTIX:
-		case GPU_ID_PRODUCT_LTIX:
-			issues = base_hw_issues_model_tTIx;
-			break;
-		case GPU_ID_PRODUCT_TKRX:
-		case GPU_ID_PRODUCT_LKRX:
-			issues = base_hw_issues_model_tKRx;
-			break;
-		default:
-			dev_err(kbdev->dev, "HW issues - Unknown Product ID %x",
-				gpu_id->product_id);
-			return -EINVAL;
 		}
 	}
 
 	dev_info(kbdev->dev, "GPU identified as 0x%x arch %d.%d.%d r%dp%d status %d",
-		 gpu_id->product_major, gpu_id->arch_major, gpu_id->arch_minor, gpu_id->arch_rev,
+		 2, 7, gpu_id->arch_minor, gpu_id->arch_rev,
 		 gpu_id->version_major, gpu_id->version_minor, gpu_id->version_status);
 
 	for (; *issues != BASE_HW_ISSUE_END; issues++)

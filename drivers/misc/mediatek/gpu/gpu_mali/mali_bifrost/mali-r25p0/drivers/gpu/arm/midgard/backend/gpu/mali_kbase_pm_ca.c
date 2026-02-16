@@ -57,11 +57,6 @@ void kbase_devfreq_set_core_mask(struct kbase_device *kbdev, u64 core_mask)
 	u64 old_core_mask = 0;
 	bool mmu_sync_needed = false;
 
-	if (!IS_ENABLED(CONFIG_MALI_NO_MALI) &&
-	    kbase_hw_has_issue(kbdev, BASE_HW_ISSUE_GPU2019_3901)) {
-		mmu_sync_needed = true;
-		down_write(&kbdev->csf.mmu_sync_sem);
-	}
 #endif
 	spin_lock_irqsave(&kbdev->hwaccess_lock, flags);
 

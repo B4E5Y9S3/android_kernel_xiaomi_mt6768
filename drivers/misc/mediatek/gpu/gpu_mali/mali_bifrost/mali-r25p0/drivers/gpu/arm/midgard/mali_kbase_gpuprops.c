@@ -149,21 +149,21 @@ void kbase_gpuprops_set_max_config(struct kbase_device *kbdev,
 
 void kbase_gpuprops_update_composite_ids(struct kbase_gpu_id_props *props)
 {
-	props->product_id = GPU_ID_PRODUCT_ID_MAKE(props->arch_major, props->arch_minor,
-						   props->arch_rev, props->product_major);
-	props->product_model = GPU_ID_MODEL_MAKE(props->arch_major, props->product_major);
+	props->product_id = GPU_ID_PRODUCT_ID_MAKE(7, props->arch_minor,
+						   props->arch_rev, 2);
+	props->product_model = GPU_ID_MODEL_MAKE(7, 2);
 	props->version_id = GPU_ID_VERSION_MAKE(props->version_major, props->version_minor,
 						props->version_status);
-	props->arch_id = GPU_ID_ARCH_MAKE(props->arch_major, props->arch_minor, props->arch_rev);
+	props->arch_id = GPU_ID_ARCH_MAKE(7, props->arch_minor, props->arch_rev);
 }
 
 void kbase_gpuprops_parse_gpu_id(struct kbase_gpu_id_props *props, u64 gpu_id)
 {
-	props->arch_major = GPU_ID2_ARCH_MAJOR_GET(gpu_id);
+	props->arch_major = 7 /* GPU_ID2_ARCH_MAJOR_GET(gpu_id) */;
 	props->version_status = gpu_id & GPU_ID2_VERSION_STATUS;
 	props->version_minor = GPU_ID2_VERSION_MINOR_GET(gpu_id);
 	props->version_major = GPU_ID2_VERSION_MAJOR_GET(gpu_id);
-	props->product_major = GPU_ID2_PRODUCT_MAJOR_GET(gpu_id);
+	props->product_major = 2 /* GPU_ID2_PRODUCT_MAJOR_GET(gpu_id) */;
 	props->arch_rev = GPU_ID2_ARCH_REV_GET(gpu_id);
 	props->arch_minor = GPU_ID2_ARCH_MINOR_GET(gpu_id);
 
@@ -433,68 +433,9 @@ kbase_read_l2_config_from_dt(struct kbase_device *const kbdev,
 	return L2_CONFIG_OVERRIDE_NONE;
 }
 
-int kbase_gpuprops_update_l2_features(struct kbase_device *kbdev)
+inline int kbase_gpuprops_update_l2_features(struct kbase_device *kbdev)
 {
-	int err = 0;
-
-	if (kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_L2_CONFIG)) {
-		struct kbasep_gpuprops_regdump *regdump = &PRIV_DATA_REGDUMP(kbdev);
-
-		/* Check for L2 cache size & hash overrides */
-		switch (kbase_read_l2_config_from_dt(kbdev, regdump)) {
-		case L2_CONFIG_OVERRIDE_FAIL:
-			err = -EIO;
-			goto exit;
-		case L2_CONFIG_OVERRIDE_NONE:
-			goto exit;
-		default:
-			break;
-		}
-
-		/* pm.active_count is expected to be 1 here, which is set in
-		 * kbase_hwaccess_pm_powerup().
-		 */
-		WARN_ON(kbdev->pm.active_count != 1);
-		/* The new settings for L2 cache can only be applied when it is
-		 * off, so first do the power down.
-		 */
-		kbase_pm_context_idle(kbdev);
-		kbase_pm_wait_for_desired_state(kbdev);
-
-		/* Need L2 to get powered to reflect to L2_FEATURES */
-		kbase_pm_context_active(kbdev);
-
-		/* Wait for the completion of L2 power transition */
-		kbase_pm_wait_for_l2_powered(kbdev);
-
-		/* Dump L2_FEATURES register */
-		err = kbase_backend_gpuprops_get_l2_features(kbdev, regdump);
-		if (err)
-			goto exit;
-
-		dev_info(kbdev->dev, "Reflected L2_FEATURES is 0x%llx\n", regdump->l2_features);
-		dev_info(kbdev->dev, "Reflected L2_CONFIG is 0x%08x\n", regdump->l2_config);
-
-		if (kbase_hw_has_l2_slice_hash_feature(kbdev)) {
-			int idx;
-			const bool enable = regdump->l2_config &
-					    L2_CONFIG_L2_SLICE_HASH_ENABLE_MASK;
-
-#if !IS_ENABLED(CONFIG_MALI_NO_MALI)
-			if (!enable && kbdev->l2_hash_values_override) {
-					dev_err(kbdev->dev,
-						"Failed to use requested ASN_HASH, fallback to default");
-			}
-#endif
-			for (idx = 0; idx < GPU_L2_SLICE_HASH_COUNT; idx++)
-					dev_info(kbdev->dev, "%s ASN_HASH[%d] is [0x%08x]\n",
-						 enable ? "Overridden" : "Default", idx,
-						 regdump->l2_slice_hash[idx]);
-		}
-	}
-
-exit:
-	return err;
+	return 0;
 }
 
 static struct {
@@ -698,9 +639,6 @@ static void kbase_populate_user_data(struct kbase_device *kbdev, struct gpu_prop
 		data->thread_props.max_task_queue = THREAD_MTQ_DEFAULT;
 		data->thread_props.max_thread_group_split = THREAD_MTGS_DEFAULT;
 	}
-
-	if (!kbase_hw_has_feature(kbdev, BASE_HW_FEATURE_THREAD_GROUP_SPLIT))
-		data->thread_props.max_thread_group_split = 0;
 
 	/* Raw Register Values */
 	data->raw_props.l2_features = regdump->l2_features;

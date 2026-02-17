@@ -147,25 +147,25 @@ void kbase_gpuprops_set_max_config(struct kbase_device *kbdev,
 	kbdev->gpu_props.max_config.core_mask = max_config->core_mask;
 }
 
-void kbase_gpuprops_update_composite_ids(struct kbase_gpu_id_props *props)
+inline void kbase_gpuprops_update_composite_ids(struct kbase_gpu_id_props *props)
 {
-	props->product_id = GPU_ID_PRODUCT_ID_MAKE(7, props->arch_minor,
-						   props->arch_rev, 2);
+	props->product_id = GPU_ID_PRODUCT_ID_MAKE(7, 4,
+						   0, 2);
 	props->product_model = GPU_ID_MODEL_MAKE(7, 2);
-	props->version_id = GPU_ID_VERSION_MAKE(props->version_major, props->version_minor,
-						props->version_status);
-	props->arch_id = GPU_ID_ARCH_MAKE(7, props->arch_minor, props->arch_rev);
+	props->version_id = GPU_ID_VERSION_MAKE(1, 0,
+						0);
+	props->arch_id = GPU_ID_ARCH_MAKE(7, 4, 0);
 }
 
-void kbase_gpuprops_parse_gpu_id(struct kbase_gpu_id_props *props, u64 gpu_id)
+inline void kbase_gpuprops_parse_gpu_id(struct kbase_gpu_id_props *props, u64 gpu_id)
 {
 	props->arch_major = 7 /* GPU_ID2_ARCH_MAJOR_GET(gpu_id) */;
-	props->version_status = gpu_id & GPU_ID2_VERSION_STATUS;
-	props->version_minor = GPU_ID2_VERSION_MINOR_GET(gpu_id);
-	props->version_major = GPU_ID2_VERSION_MAJOR_GET(gpu_id);
+	props->version_status = 0 /* gpu_id & GPU_ID2_VERSION_STATUS */;
+	props->version_minor = 0 /* GPU_ID2_VERSION_MINOR_GET(gpu_id) */;
+	props->version_major = 1 /* GPU_ID2_VERSION_MAJOR_GET(gpu_id) */;
 	props->product_major = 2 /* GPU_ID2_PRODUCT_MAJOR_GET(gpu_id) */;
-	props->arch_rev = GPU_ID2_ARCH_REV_GET(gpu_id);
-	props->arch_minor = GPU_ID2_ARCH_MINOR_GET(gpu_id);
+	props->arch_rev = 0 /* GPU_ID2_ARCH_REV_GET(gpu_id) */;
+	props->arch_minor = 4 /* GPU_ID2_ARCH_MINOR_GET(gpu_id) */;
 
 	kbase_gpuprops_update_composite_ids(props);
 }

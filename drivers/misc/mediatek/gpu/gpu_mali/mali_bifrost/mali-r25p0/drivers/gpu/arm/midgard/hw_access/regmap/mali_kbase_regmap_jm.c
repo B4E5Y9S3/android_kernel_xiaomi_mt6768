@@ -2290,33 +2290,11 @@ static void kbase_regmap_v9_14_init(struct kbase_device *kbdev)
 	kbdev->regmap.regs[PTM_ID] = kbdev->reg + 0x1ffc0;
 }
 
-u32 kbase_regmap_backend_init(struct kbase_device *kbdev)
+inline u32 kbase_regmap_backend_init(struct kbase_device *kbdev)
 {
-	int i = 0;
+	kbase_regmap_v7_2_init(kbdev);
 
-	struct {
-		u32 arch_id;
-		void (*init)(struct kbase_device *kbdev);
-	} init_array[] = {
-		{ GPU_ID_ARCH_MAKE(6, 0, 0), kbase_regmap_v6_0_init },
-		{ GPU_ID_ARCH_MAKE(6, 2, 0), kbase_regmap_v6_2_init },
-		{ GPU_ID_ARCH_MAKE(7, 0, 0), kbase_regmap_v7_0_init },
-		{ GPU_ID_ARCH_MAKE(7, 2, 0), kbase_regmap_v7_2_init },
-		{ GPU_ID_ARCH_MAKE(9, 0, 0), kbase_regmap_v9_0_init },
-		{ GPU_ID_ARCH_MAKE(9, 2, 0), kbase_regmap_v9_2_init },
-		{ GPU_ID_ARCH_MAKE(9, 14, 0), kbase_regmap_v9_14_init },
-	};
-
-	for (i = 0; i < ARRAY_SIZE(init_array) - 1; i++) {
-		if (kbdev->gpu_props.gpu_id.arch_id < init_array[i + 1].arch_id) {
-			init_array[i].init(kbdev);
-			return init_array[i].arch_id;
-		}
-	}
-
-	/* arch_id greater than last entry in init_array */
-	init_array[i].init(kbdev);
-	return init_array[i].arch_id;
+	return GPU_ID_ARCH_MAKE(7, 2, 0);
 }
 
 #ifdef CONFIG_MALI_DEBUG

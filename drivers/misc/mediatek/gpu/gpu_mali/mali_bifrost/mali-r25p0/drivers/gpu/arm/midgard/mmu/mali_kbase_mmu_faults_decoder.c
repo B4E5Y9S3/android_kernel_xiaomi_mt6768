@@ -48,7 +48,7 @@ static inline const char *source_id_enc_core_type_get_str(struct kbase_device *k
 {
 	if (GPU_ID_PRODUCT_TGOX < GPU_ID_MODEL_MAKE(14, 0))
 		return decode_fault_source_core_id_t_core_type(
-			FAULT_SOURCE_ID_CORE_ID_GET(source_id), kbdev->gpu_props.gpu_id.arch_id);
+			FAULT_SOURCE_ID_CORE_ID_GET(source_id), TGOX_arch_id);
 	/* else
 		return decode_fault_source_core_type_t_name(
 			FAULT_SOURCE_ID_CORE_TYPE_GET(source_id), kbdev->gpu_props.gpu_id.arch_id); */
@@ -69,10 +69,10 @@ const char *fault_source_id_internal_requester_get_str(struct kbase_device *kbde
 		if (utlb_id == 0) {
 			if (access_type == AS_FAULTSTATUS_ACCESS_TYPE_READ)
 				return decode_fault_source_shader_r_t(
-					ir, kbdev->gpu_props.gpu_id.arch_id);
+					ir, TGOX_arch_id);
 			else
 				return decode_fault_source_shader_w_t(
-					ir, kbdev->gpu_props.gpu_id.arch_id);
+					ir, TGOX_arch_id);
 		} else
 			return "Load/store cache";
 	} else if (!strcmp(source_id_enc_core_type_get_str(kbdev, source_id), "tiler")) {
@@ -100,7 +100,7 @@ const char *fault_source_id_internal_requester_get_str(struct kbase_device *kbde
 	}
 #else
 	else if (!strcmp(source_id_enc_core_type_get_str(kbdev, source_id), "jm"))
-		return decode_fault_source_jm_t(ir, kbdev->gpu_props.gpu_id.arch_id);
+		return decode_fault_source_jm_t(ir, TGOX_arch_id);
 #endif
 	else if (!strcmp(source_id_enc_core_type_get_str(kbdev, source_id), "I2c") ||
 		 !strcmp(source_id_enc_core_type_get_str(kbdev, source_id), "memsys") ||
@@ -111,12 +111,12 @@ const char *fault_source_id_internal_requester_get_str(struct kbase_device *kbde
 	return "unknown";
 }
 
-const char *fault_source_id_core_type_description_get(struct kbase_device *kbdev,
+inline const char *fault_source_id_core_type_description_get(struct kbase_device *kbdev,
 						      unsigned int source_id)
 {
 	if (GPU_ID_PRODUCT_TGOX < GPU_ID_MODEL_MAKE(14, 0)) {
 		return decode_fault_source_core_id_t_desc(FAULT_SOURCE_ID_CORE_ID_GET(source_id),
-							  kbdev->gpu_props.gpu_id.arch_id);
+							  TGOX_arch_id);
 	} /* else {
 		return decode_fault_source_core_type_t_desc(
 			FAULT_SOURCE_ID_CORE_TYPE_GET(source_id), kbdev->gpu_props.gpu_id.arch_id);

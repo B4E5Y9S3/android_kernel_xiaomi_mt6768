@@ -64,11 +64,6 @@ static inline const enum base_hw_issue *kbase_hw_get_issues_for_new_id(struct kb
 int kbase_hw_set_issues_mask(struct kbase_device *kbdev)
 {
 	const enum base_hw_issue *issues;
-	struct kbase_gpu_id_props *gpu_id;
-	u32 impl_tech;
-
-	gpu_id = &kbdev->gpu_props.gpu_id;
-	impl_tech = kbdev->gpu_props.impl_tech;
 
 	if (true) {
 		/* Software model */
@@ -78,8 +73,8 @@ int kbase_hw_set_issues_mask(struct kbase_device *kbdev)
 	}
 
 	dev_info(kbdev->dev, "GPU identified as 0x%x arch %d.%d.%d r%dp%d status %d",
-		 2, 7, gpu_id->arch_minor, gpu_id->arch_rev,
-		 gpu_id->version_major, gpu_id->version_minor, gpu_id->version_status);
+		 2, 7, TGOX_arch_minor, TGOX_arch_rev,
+		 TGOX_version_major, TGOX_version_minor, TGOX_version_status);
 
 	for (; *issues != BASE_HW_ISSUE_END; issues++)
 		set_bit(*issues, &kbdev->hw_issues_mask[0]);

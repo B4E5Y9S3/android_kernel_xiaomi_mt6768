@@ -138,9 +138,9 @@ static struct settings_status settings_valid(unsigned int prod_model, unsigned i
 	return valid;
 }
 
-bool kbasep_pbha_supported(struct kbase_device *kbdev)
+inline bool kbasep_pbha_supported(struct kbase_device *kbdev)
 {
-	return kbdev->gpu_props.gpu_id.arch_id >= GPU_ID_ARCH_MAKE(11, 0, 3);
+	return TGOX_arch_id >= GPU_ID_ARCH_MAKE(11, 0, 3);
 }
 
 int kbase_pbha_record_settings(struct kbase_device *kbdev, bool runtime, unsigned int id,

@@ -157,7 +157,7 @@ int kbase_regmap_init(struct kbase_device *kbdev)
 	kbasep_reg_setup_always_powered_registers(kbdev);
 
 	dev_info(kbdev->dev, "Register LUT %08x initialized for GPU arch 0x%08x\n", lut_arch_id,
-		 kbdev->gpu_props.gpu_id.arch_id);
+		 TGOX_arch_id);
 
 
 	return 0;

@@ -85,7 +85,7 @@ int kbase_set_mmu_quirks(struct kbase_device *kbdev)
 	u32 mmu_config = 0;
 	unsigned int i;
 
-	product_model = kbdev->gpu_props.gpu_id.product_model;
+	product_model = TGOX_product_model;
 
 	/* Limit the GPU bus bandwidth if the platform needs this. */
 	for (i = 0; i < ARRAY_SIZE(limits); i++) {

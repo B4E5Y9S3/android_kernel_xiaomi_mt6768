@@ -147,27 +147,23 @@ void kbase_gpuprops_set_max_config(struct kbase_device *kbdev,
 	kbdev->gpu_props.max_config.core_mask = max_config->core_mask;
 }
 
-inline void kbase_gpuprops_update_composite_ids(struct kbase_gpu_id_props *props)
-{
-	props->product_id = GPU_ID_PRODUCT_ID_MAKE(7, 4,
-						   0, 2);
-	props->product_model = GPU_ID_MODEL_MAKE(7, 2);
-	props->version_id = GPU_ID_VERSION_MAKE(1, 0,
-						0);
-	props->arch_id = GPU_ID_ARCH_MAKE(7, 4, 0);
-}
-
 inline void kbase_gpuprops_parse_gpu_id(struct kbase_gpu_id_props *props, u64 gpu_id)
 {
-	props->arch_major = 7 /* GPU_ID2_ARCH_MAJOR_GET(gpu_id) */;
-	props->version_status = 0 /* gpu_id & GPU_ID2_VERSION_STATUS */;
-	props->version_minor = 0 /* GPU_ID2_VERSION_MINOR_GET(gpu_id) */;
-	props->version_major = 1 /* GPU_ID2_VERSION_MAJOR_GET(gpu_id) */;
-	props->product_major = 2 /* GPU_ID2_PRODUCT_MAJOR_GET(gpu_id) */;
-	props->arch_rev = 0 /* GPU_ID2_ARCH_REV_GET(gpu_id) */;
-	props->arch_minor = 4 /* GPU_ID2_ARCH_MINOR_GET(gpu_id) */;
+	static const struct kbase_gpu_id_props tGOx_r1p0 = {
+		.arch_major		= 7,
+		.version_status	= 0,
+		.version_minor	= 0,
+		.version_major	= 1,
+		.product_major	= 2,
+		.arch_rev		= 0,
+		.arch_minor		= 4,
+		.product_id		= GPU_ID_PRODUCT_ID_MAKE(7, 4, 0, 2),
+		.product_model	= GPU_ID_MODEL_MAKE(7, 2),
+		.version_id		= GPU_ID_VERSION_MAKE(1, 0, 0),
+		.arch_id		= GPU_ID_ARCH_MAKE(7, 4, 0),
+	};
 
-	kbase_gpuprops_update_composite_ids(props);
+	*props = tGOx_r1p0;
 }
 KBASE_EXPORT_TEST_API(kbase_gpuprops_parse_gpu_id);
 

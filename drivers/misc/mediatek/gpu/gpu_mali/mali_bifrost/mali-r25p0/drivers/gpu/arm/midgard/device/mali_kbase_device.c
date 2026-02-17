@@ -522,7 +522,7 @@ int kbase_device_early_init(struct kbase_device *kbdev)
 	 */
 	if (!kbase_reg_is_init(kbdev)) {
 		/* Initialize GPU_ID props */
-		kbase_gpuprops_parse_gpu_id(&kbdev->gpu_props.gpu_id, kbase_reg_get_gpu_id(kbdev));
+		kbase_gpuprops_parse_gpu_id(&kbdev->gpu_props.gpu_id, NULL /* kbase_reg_get_gpu_id(kbdev) */);
 
 		err = kbase_regmap_init(kbdev);
 		if (err)

@@ -28,3 +28,16 @@ endif
 ccflags-y += -DCONFIG_PROC_FS
 ccflags-y += -DENABLE_MTK_MEMINFO
 ccflags-$(CONFIG_MTK_GPU_COMMON_DVFS_SUPPORT) += -DENABLE_COMMON_DVFS
+
+# Mali-G52 MP2 r1p0
+ccflags-y += -DTGOX_arch_major=7
+ccflags-y += -DTGOX_version_status=0
+ccflags-y += -DTGOX_version_minor=0
+ccflags-y += -DTGOX_version_major=1
+ccflags-y += -DTGOX_product_major=2
+ccflags-y += -DTGOX_arch_rev=0
+ccflags-y += -DTGOX_arch_minor=4
+ccflags-y += -DTGOX_product_id=117702658u
+ccflags-y += -DTGOX_product_model=117440514u
+ccflags-y += -DTGOX_version_id=65536u
+ccflags-y += -DTGOX_arch_id=459776u

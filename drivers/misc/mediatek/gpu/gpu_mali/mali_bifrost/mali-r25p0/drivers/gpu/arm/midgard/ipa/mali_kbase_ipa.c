@@ -288,9 +288,9 @@ int kbase_ipa_init(struct kbase_device *kbdev)
 	err = of_property_read_string(kbdev->dev->of_node, "ipa-model", &model_name);
 	if (err) {
 		/* Attempt to load a match from GPU-ID */
-		model_name = kbase_ipa_model_name_from_id(&kbdev->gpu_props.gpu_id);
+		model_name = kbase_ipa_model_name_from_id(TGOX_gpu_id);
 		dev_dbg(kbdev->dev, "Inferring model from GPU Product ID 0x%x: \'%s\'\n",
-			kbdev->gpu_props.gpu_id.product_id, model_name);
+			TGOX_product_id, model_name);
 		err = 0;
 	} else {
 		dev_dbg(kbdev->dev, "Using ipa-model parameter from DT: \'%s\'\n", model_name);

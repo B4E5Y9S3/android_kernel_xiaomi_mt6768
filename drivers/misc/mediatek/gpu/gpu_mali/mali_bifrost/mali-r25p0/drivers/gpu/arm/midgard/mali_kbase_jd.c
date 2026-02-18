@@ -891,7 +891,7 @@ static bool jd_submit_atom(struct kbase_context *const kctx,
 
 	/* Reject atoms with an invalid device_nr */
 	if ((katom->core_req & BASE_JD_REQ_SPECIFIC_COHERENT_GROUP) &&
-	    (katom->device_nr >= kctx->kbdev->gpu_props.num_core_groups)) {
+	    (katom->device_nr >= TGOX_num_core_groups)) {
 		dev_err(kctx->kbdev->dev, "Rejecting atom with invalid device_nr %d\n",
 			katom->device_nr);
 		katom->event_code = BASE_JD_EVENT_JOB_INVALID;

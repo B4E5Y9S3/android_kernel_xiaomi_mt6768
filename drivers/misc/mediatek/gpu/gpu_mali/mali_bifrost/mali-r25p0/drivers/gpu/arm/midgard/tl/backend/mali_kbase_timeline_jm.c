@@ -45,7 +45,7 @@ void kbase_create_timeline_objects(struct kbase_device *kbdev)
 		__kbase_tlstream_tl_new_as(summary, &kbdev->as[as_nr], (u32)as_nr);
 
 	/* Create GPU object and make it retain all LPUs and address spaces. */
-	__kbase_tlstream_tl_new_gpu(summary, kbdev, kbdev->id, kbdev->gpu_props.num_cores);
+	__kbase_tlstream_tl_new_gpu(summary, kbdev, kbdev->id, TGOX_num_cores);
 
 	for (lpu_id = 0; lpu_id < kbdev->gpu_props.num_job_slots; lpu_id++) {
 		void *lpu = &kbdev->gpu_props.js_features[lpu_id];

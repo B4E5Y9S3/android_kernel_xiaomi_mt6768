@@ -125,8 +125,8 @@ struct kbase_gator_hwcnt_handles *kbase_gator_hwcnt_init(struct kbase_gator_hwcn
 
 	in_out_info->kernel_dump_buffer = hand->dump_buf.dump_buf;
 
-	in_out_info->nr_cores = hand->kbdev->gpu_props.num_cores;
-	in_out_info->nr_core_groups = hand->kbdev->gpu_props.num_core_groups;
+	in_out_info->nr_cores = TGOX_num_cores;
+	in_out_info->nr_core_groups = TGOX_num_core_groups;
 	in_out_info->gpu_id = TGOX_product_model;
 
 	if (true) {

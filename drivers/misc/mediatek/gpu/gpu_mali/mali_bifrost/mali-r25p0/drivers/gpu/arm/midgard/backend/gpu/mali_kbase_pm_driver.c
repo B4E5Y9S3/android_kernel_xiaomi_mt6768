@@ -509,6 +509,11 @@ static u64 kbase_pm_get_state(struct kbase_device *kbdev, enum kbase_pm_core_typ
  */
 u64 kbase_pm_get_present_cores(struct kbase_device *kbdev, enum kbase_pm_core_type core_type)
 {
+	if (core_type == KBASE_PM_CORE_TILER)
+		return TGOX_tiler_present;
+	if (core_type == KBASE_PM_CORE_STACK)
+		return TGOX_stack_present;
+
 	if (WARN_ON(!kbdev))
 		return 0;
 
@@ -517,10 +522,6 @@ u64 kbase_pm_get_present_cores(struct kbase_device *kbdev, enum kbase_pm_core_ty
 		return kbdev->gpu_props.curr_config.l2_present;
 	case KBASE_PM_CORE_SHADER:
 		return kbdev->gpu_props.curr_config.shader_present;
-	case KBASE_PM_CORE_TILER:
-		return kbdev->gpu_props.tiler_present;
-	case KBASE_PM_CORE_STACK:
-		return kbdev->gpu_props.stack_present;
 	default:
 		break;
 	}

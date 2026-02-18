@@ -2521,7 +2521,7 @@ static ssize_t core_mask_show(struct device *dev, struct device_attribute *attr,
 #endif /* MALI_USE_CSF */
 
 	ret += scnprintf(buf + ret, (size_t)(PAGE_SIZE - ret), "Available core mask : 0x%llX\n",
-			 kbdev->gpu_props.shader_present);
+			 TGOX_shader_present);
 #if !MALI_USE_CSF
 out_unlock:
 #endif
@@ -2549,7 +2549,7 @@ static int core_mask_parse(struct kbase_device *const kbdev, const char *const b
 static int core_mask_set(struct kbase_device *kbdev, struct kbase_core_mask *const new_mask)
 {
 	u64 new_core_mask = new_mask->new_core_mask;
-	u64 shader_present = kbdev->gpu_props.shader_present;
+	u64 shader_present = TGOX_shader_present;
 
 	lockdep_assert_held(&kbdev->pm.lock);
 	lockdep_assert_held(&kbdev->hwaccess_lock);
@@ -2563,7 +2563,7 @@ static int core_mask_set(struct kbase_device *kbdev, struct kbase_core_mask *con
 	} else if (!(new_core_mask & shader_present & kbdev->pm.backend.ca_cores_enabled)) {
 		dev_err(kbdev->dev,
 			"Invalid core mask 0x%llX: No intersection with currently available cores (present = 0x%llX, CA enabled = 0x%llX)",
-			new_core_mask, kbdev->gpu_props.shader_present,
+			new_core_mask, TGOX_shader_present,
 			kbdev->pm.backend.ca_cores_enabled);
 		return -EINVAL;
 	}
@@ -2619,7 +2619,7 @@ error:
 
 static int core_mask_set(struct kbase_device *kbdev, struct kbase_core_mask *const new_mask)
 {
-	u64 shader_present = kbdev->gpu_props.shader_present;
+	u64 shader_present = TGOX_shader_present;
 	u64 group_core_mask = kbdev->gpu_props.coherency_info.group.core_mask;
 	u64 *new_core_mask = &new_mask->new_core_mask[0];
 	size_t i;
@@ -2635,7 +2635,7 @@ static int core_mask_set(struct kbase_device *kbdev, struct kbase_core_mask *con
 			     kbdev->pm.backend.ca_cores_enabled)) {
 			dev_err(kbdev->dev,
 				"Invalid core mask 0x%llX for JS %zu: No intersection with currently available cores (present = 0x%llX, CA enabled = 0x%llX)",
-				new_core_mask[i], i, kbdev->gpu_props.shader_present,
+				new_core_mask[i], i, TGOX_shader_present,
 				kbdev->pm.backend.ca_cores_enabled);
 			return -EINVAL;
 		} else if (!(new_core_mask[i] & group_core_mask)) {
@@ -3319,23 +3319,12 @@ static DEVICE_ATTR_RW(debug_command);
 static ssize_t gpuinfo_show(struct device *dev, struct device_attribute *attr, char *buf)
 {
 	const char *product_name = "Mali-G52";
-	struct kbase_device *kbdev;
-	u32 product_id;
-	unsigned int i;
-	struct kbase_gpu_props *gpu_props;
 
 	CSTD_UNUSED(attr);
 
-	kbdev = to_kbase_device(dev);
-	if (!kbdev)
-		return -ENODEV;
-
-	gpu_props = &kbdev->gpu_props;
-	product_id = gpu_props->gpu_id.product_id;
-
 	return scnprintf(buf, PAGE_SIZE, "%s %d cores r%dp%d 0x%08X\n", product_name,
-			 kbdev->gpu_props.num_cores, gpu_props->gpu_id.version_major,
-			 gpu_props->gpu_id.version_minor, product_id);
+			 TGOX_num_cores, TGOX_version_major,
+			 TGOX_version_minor, TGOX_product_id);
 }
 static DEVICE_ATTR_RO(gpuinfo);
 

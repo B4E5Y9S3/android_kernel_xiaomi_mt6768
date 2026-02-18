@@ -211,13 +211,13 @@ static int kbase_gpuprops_get_props(struct kbase_device *kbdev)
 	if (err)
 		return err;
 
-	gpu_props->shader_present = regdump->shader_present;
-	gpu_props->tiler_present = regdump->tiler_present;
-	gpu_props->stack_present = regdump->stack_present;
-	gpu_props->l2_present = regdump->l2_present;
+	gpu_props->shader_present = TGOX_shader_present;
+	gpu_props->tiler_present = TGOX_tiler_present;
+	gpu_props->stack_present = TGOX_stack_present;
+	gpu_props->l2_present = TGOX_l2_present;
 
-	gpu_props->num_cores = hweight64(regdump->shader_present);
-	gpu_props->num_core_groups = hweight64(regdump->l2_present);
+	gpu_props->num_cores = TGOX_num_cores;
+	gpu_props->num_core_groups = TGOX_num_core_groups;
 
 	{
 		gpu_props->num_address_spaces = hweight32(regdump->as_present);
@@ -244,7 +244,7 @@ static int kbase_gpuprops_get_props(struct kbase_device *kbdev)
 	gpu_props->coherency_info.coherent_core_group = KBASE_UBFX64(regdump->mem_features, 0U, 1);
 	gpu_props->coherency_info.coherent_super_group = KBASE_UBFX64(regdump->mem_features, 1U, 1);
 	gpu_props->coherency_info.group.core_mask = gpu_props->shader_present;
-	gpu_props->coherency_info.group.num_cores = gpu_props->num_cores;
+	gpu_props->coherency_info.group.num_cores = TGOX_num_cores;
 
 	gpu_props->mmu.va_bits = KBASE_UBFX64(regdump->mmu_features, 0U, 8);
 	gpu_props->mmu.pa_bits = KBASE_UBFX64(regdump->mmu_features, 8U, 8);
@@ -551,17 +551,17 @@ static void kbase_populate_user_data(struct kbase_device *kbdev, struct gpu_prop
 		return;
 
 	/* Properties from kbase_gpu_props */
-	data->core_props.version_status = kprops->gpu_id.version_status;
-	data->core_props.minor_revision = kprops->gpu_id.version_minor;
-	data->core_props.major_revision = kprops->gpu_id.version_major;
+	data->core_props.version_status = TGOX_version_status;
+	data->core_props.minor_revision = TGOX_version_minor;
+	data->core_props.major_revision = TGOX_version_major;
 	data->core_props.gpu_freq_khz_max = kprops->gpu_freq_khz_max;
 	data->core_props.log2_program_counter_size = kprops->log2_program_counter_size;
 	data->l2_props.log2_line_size = kprops->log2_line_size;
 	data->l2_props.num_l2_slices = kprops->num_l2_slices;
-	data->raw_props.shader_present = kprops->shader_present;
-	data->raw_props.l2_present = kprops->l2_present;
-	data->raw_props.tiler_present = kprops->tiler_present;
-	data->raw_props.stack_present = kprops->stack_present;
+	data->raw_props.shader_present = TGOX_shader_present;
+	data->raw_props.l2_present = TGOX_l2_present;
+	data->raw_props.tiler_present = TGOX_tiler_present;
+	data->raw_props.stack_present = TGOX_stack_present;
 
 	/* On Bifrost+ GPUs, there is only 1 coherent group */
 	data->coherency_info.num_groups = 1;
@@ -596,7 +596,7 @@ static void kbase_populate_user_data(struct kbase_device *kbdev, struct gpu_prop
 	 * otherwise reserved/RAZ on older GPUs.
 	 */
 #if !MALI_USE_CSF
-	data->core_props.num_exec_engines = KBASE_UBFX64(regdump->core_features, 0, 4);
+	data->core_props.num_exec_engines = TGOX_num_exec_engines;
 #endif
 
 	data->l2_props.log2_cache_size = KBASE_UBFX64(regdump->l2_features, 16U, 8);

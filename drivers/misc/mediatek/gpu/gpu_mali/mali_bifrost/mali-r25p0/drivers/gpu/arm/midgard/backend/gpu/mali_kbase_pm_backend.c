@@ -741,7 +741,7 @@ int kbase_hwaccess_pm_powerup(struct kbase_device *kbdev, unsigned int flags)
 #else
 	kbdev->pm.debug_core_mask_all = kbdev->pm.debug_core_mask[0] =
 		kbdev->pm.debug_core_mask[1] = kbdev->pm.debug_core_mask[2] =
-			kbdev->gpu_props.shader_present;
+			TGOX_shader_present;
 #endif
 
 	/* Pretend the GPU is active to prevent a power policy turning the GPU

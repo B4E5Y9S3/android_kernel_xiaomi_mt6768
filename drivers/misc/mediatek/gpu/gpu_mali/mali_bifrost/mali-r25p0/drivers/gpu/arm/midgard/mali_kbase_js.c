@@ -2428,11 +2428,6 @@ static unsigned int kbase_js_get_slot(struct kbase_device *kbdev, struct kbase_j
 	if (katom->core_req & BASE_JD_REQ_FS)
 		return 0;
 
-	if (katom->core_req & BASE_JD_REQ_ONLY_COMPUTE) {
-		if (katom->device_nr == 1 && kbdev->gpu_props.num_core_groups == 2)
-			return 2;
-	}
-
 	return 1;
 }
 

@@ -41,3 +41,10 @@ ccflags-y += -DTGOX_product_id=117702658u
 ccflags-y += -DTGOX_product_model=117440514u
 ccflags-y += -DTGOX_version_id=65536u
 ccflags-y += -DTGOX_arch_id=459776u
+ccflags-y += -DTGOX_shader_present=3
+ccflags-y += -DTGOX_tiler_present=1
+ccflags-y += -DTGOX_stack_present=3
+ccflags-y += -DTGOX_l2_present=1
+ccflags-y += -DTGOX_num_cores=2
+ccflags-y += -DTGOX_num_core_groups=1
+ccflags-y += -DTGOX_num_exec_engines=2

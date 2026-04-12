@@ -515,3 +515,9 @@ CONFIG_CPU_BOOST=y
 
 CONFIG_OVERLAY_FS=y
 CONFIG_TMPFS_XATTR=y
+# IPC mechanisms (required for tools that rely on shared memory and IPC namespaces)
+CONFIG_SYSCTL=y
+CONFIG_SYSVIPC=y
+CONFIG_POSIX_MQUEUE=y
+# Device filesystem support (enables hardware access when --hw-access is enabled)
+CONFIG_DEVTMPFS=y
